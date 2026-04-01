@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VO₂ Max Mortality Calculator</title>
+  <meta name="description" content="Evidence-based calculator showing how cardiorespiratory fitness (VO₂ max) affects all-cause mortality risk, anchored to Mandsager 2018 hazard ratios and SSA life tables.">
+  <link rel="stylesheet" href="css/main.css">
+  <!-- Chart.js v4.4.4 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <nav>
+    <span class="logo">VO₂ Max &amp; Mortality</span>
+    <a href="index.html">Calculator</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="https://github.com/yourusername/vo2max-mortality" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <div class="page-intro">
+    <h1>VO₂ Max Mortality Calculator</h1>
+    <p>Estimates how your cardiorespiratory fitness level affects annual mortality risk,
+       and expresses the difference in everyday risk units. Based on Mandsager et al. (2018)
+       hazard ratios anchored to US life tables. <a href="methodology.html">See full methodology →</a></p>
+  </div>
+
+  <!-- ── Input card ──────────────────────────────────────────────────────── -->
+  <div class="card" id="calculate-form">
+    <h2>Your information</h2>
+
+    <div class="form-grid">
+      <div class="field">
+        <label for="age">Age</label>
+        <input type="number" id="age" min="18" max="90" step="1" placeholder="e.g. 40">
+        <span class="field-hint">18 – 90 years</span>
+      </div>
+
+      <div class="field">
+        <label>Sex</label>
+        <div class="radio-group">
+          <label><input type="radio" name="sex" value="male"> Male</label>
+          <label><input type="radio" name="sex" value="female"> Female</label>
+        </div>
+        <span class="field-hint">Biological sex (used for actuarial tables and VO₂ norms)</span>
+      </div>
+
+      <div class="field" style="grid-column: 1 / -1;">
+        <label for="vo2max">VO₂ max (mL/kg/min)</label>
+        <input type="number" id="vo2max" min="5" max="100" step="0.1" placeholder="e.g. 42.5">
+        <details>
+          <summary>How to estimate your VO₂ max</summary>
+          <ul style="font-size:0.875rem; color:#64748b; margin: 0.5rem 0 0 1.2rem; line-height:1.7;">
+            <li><strong>Smartwatch estimate:</strong> Many Garmin, Apple Watch, and Polar devices estimate VO₂ max from heart rate during runs. These are typically within ±5 mL/kg/min.</li>
+            <li><strong>Cooper 12-minute run test:</strong> VO₂ max ≈ (distance in meters − 504.9) / 44.73. Run as far as you can in 12 minutes on a flat surface.</li>
+            <li><strong>Rockport 1-mile walk test:</strong> Walk 1 mile as fast as possible; use published formula with finish time, heart rate, age, sex, and weight.</li>
+            <li><strong>Clinical exercise test (gold standard):</strong> VO₂ max measured directly by a sports medicine lab or cardiologist during maximal exercise.</li>
+          </ul>
+        </details>
+      </div>
+    </div>
+
+    <details>
+      <summary>Health conditions (optional — adjusts your baseline mortality)</summary>
+      <p style="font-size:0.8rem;color:#64748b;margin:0 0 0.8rem;">
+        These shift your personal annual mortality estimate using published hazard ratios.
+        They do <em>not</em> affect the fitness category definitions or Mandsager HRs.
+        Applied multiplicatively (independence assumed; see <a href="methodology.html">methodology</a>).
+      </p>
+      <div class="checkbox-group">
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-diabetes" value="diabetes">
+          Type 2 diabetes</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-hypertension" value="hypertension">
+          Hypertension</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-smoking_current" value="smoking_current">
+          Current smoker</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-smoking_former" value="smoking_former">
+          Former smoker</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-obesity_1" value="obesity_1">
+          Obesity class I (BMI 30–35)</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-obesity_2" value="obesity_2">
+          Obesity class II (BMI 35–40)</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-obesity_3" value="obesity_3">
+          Obesity class III (BMI ≥ 40)</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-cad" value="cad">
+          CAD or prior heart attack</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-copd_moderate" value="copd_moderate">
+          COPD (moderate — GOLD II)</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-copd_severe" value="copd_severe">
+          COPD (severe — GOLD III–IV)</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-ckd_3a" value="ckd_3a">
+          CKD stage 3A (eGFR 45–59)</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-ckd_3b" value="ckd_3b">
+          CKD stage 3B (eGFR 30–44)</label>
+        <label><input type="checkbox" class="risk-factor-cb" id="cb-depression" value="depression">
+          Clinical depression</label>
+      </div>
+    </details>
+
+    <ul class="form-errors" id="form-errors" role="alert"></ul>
+    <button class="btn" id="calculate-btn">Calculate</button>
+  </div>
+
+  <!-- ── Results (hidden until calculation) ─────────────────────────────── -->
+  <div id="results-section" style="display:none;">
+
+    <!-- Hero -->
+    <div class="card">
+      <h2>Your results</h2>
+      <p id="hero-fitness"></p>
+      <p id="hero-mortality"></p>
+      <div id="risk-breakdown"></div>
+    </div>
+
+    <!-- Chart + Table -->
+    <div class="card">
+      <h2>Annual mortality by fitness category</h2>
+      <p class="muted small">Estimated for your age, sex, and health conditions.
+         Purple bar = your current level. Dashed line = population average.
+         Error bars show plausible range from HR confidence intervals.</p>
+      <div class="chart-container">
+        <canvas id="mortality-chart" role="img"
+                aria-label="Bar chart of annual mortality by fitness category"></canvas>
+      </div>
+
+      <div class="table-wrap">
+        <table aria-label="Mortality by fitness category">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>VO₂ max range*</th>
+              <th>Annual mortality</th>
+              <th>Plausible range</th>
+              <th>vs your current</th>
+            </tr>
+          </thead>
+          <tbody id="mortality-tbody"></tbody>
+        </table>
+      </div>
+      <p class="small muted mt-1">
+        * VO₂ max boundaries from Mandsager 2018 Table 1 for your age/sex group (mL/kg/min).
+        Plausible range reflects 95% CIs on Mandsager hazard ratios; not a formal 95% CI.
+      </p>
+    </div>
+
+    <!-- Risk equivalents -->
+    <div class="card">
+      <h2>What would changing fitness mean?</h2>
+      <p class="muted small">Excess annual mortality expressed in equivalent risky activities per year.
+         <a href="methodology.html#equivalents">How these are calculated →</a></p>
+      <div id="equivalents-container"></div>
+    </div>
+
+    <!-- Life expectancy -->
+    <div class="card">
+      <h2>Life expectancy impact</h2>
+      <p id="le-summary"></p>
+      <p class="small muted mt-1">Computed by integrating the SSA 2021 life table
+         from your current age to 119, with mortality scaled by the fitness-level HR ratio.
+         This is a simplified model; actual life expectancy depends on many factors.</p>
+    </div>
+
+    <!-- Caveats -->
+    <div class="card">
+      <h2>Important caveats</h2>
+      <ul class="caveat-list">
+        <li><strong>Clinical cohort bias.</strong> Mandsager et al. studied patients referred
+          for exercise treadmill testing — a sicker-than-average population. Their absolute
+          mortality rates are higher than the general population. We use the <em>ratios</em>
+          (hazard ratios) between fitness levels, assuming these transfer to the general
+          population. This may overestimate the benefit of fitness improvement.</li>
+        <li><strong>Correlation vs. causation.</strong> Observational HRs do not establish
+          causation. Fitness may partly be a biomarker of underlying health rather than a
+          purely modifiable cause of mortality. Intervention RCTs show real but smaller
+          effects than observational HRs.</li>
+        <li><strong>Independence assumption.</strong> Risk factors are applied multiplicatively,
+          assuming independence. Real interactions (e.g., diabetes + CAD) are often synergistic,
+          so combined risk may be overestimated or underestimated.</li>
+        <li><strong>Age-constant HRs.</strong> Mandsager HRs are averaged across a wide age range
+          and applied uniformly here. Fitness benefits may vary by age.</li>
+        <li><strong>VO₂ max measurement error.</strong> Field estimates (wearables, Cooper test)
+          carry ±5–15 mL/kg/min uncertainty, which can shift category classification.</li>
+        <li><strong>Population generalizability.</strong> The Mandsager cohort was predominantly
+          white, middle-aged, Cleveland Clinic patients. Results may differ in other populations.</li>
+        <li><strong>Not medical advice.</strong> This tool is for educational purposes only.
+          Consult your physician before making changes to exercise or health decisions.</li>
+      </ul>
+      <p class="small muted mt-1">
+        <a href="methodology.html">Full methodology, derivation, and references →</a>
+      </p>
+    </div>
+
+  </div><!-- /results-section -->
+</main>
+
+<footer class="site-footer">
+  <p>Open source · MIT License ·
+     <a href="https://github.com/yourusername/vo2max-mortality" target="_blank" rel="noopener">GitHub</a> ·
+     Not medical advice · Data sources: <a href="methodology.html">see methodology</a></p>
+</footer>
+
+<!-- Data files -->
+<script src="js/data/ssa-life-tables.js"></script>
+<script src="js/data/mandsager.js"></script>
+<script src="js/data/friend-registry.js"></script>
+<script src="js/data/risk-factors.js"></script>
+<!-- Core -->
+<script src="js/core/formatter.js"></script>
+<script src="js/core/engine.js"></script>
+<!-- UI -->
+<script src="js/ui/charts.js"></script>
+<script src="js/ui/results.js"></script>
+<script src="js/ui/form.js"></script>
+<!-- Tests (debug mode only) -->
+<script src="js/tests/verify.js"></script>
+<!-- Init -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => Form.init());
+</script>
+
+</body>
+</html>

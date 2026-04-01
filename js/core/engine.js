@@ -1,0 +1,195 @@
+/**
+ * Mortality Engine
+ *
+ * Core computation linking VO2 max fitness level to absolute annual mortality
+ * probability, anchored to SSA 2021 period life tables and Mandsager 2018
+ * hazard ratios.
+ *
+ * MATHEMATICAL APPROACH
+ * ─────────────────────
+ * 1. Obtain population baseline mortality q_pop from SSA life table.
+ *
+ * 2. Back-calculate mortality for each fitness category:
+ *      W = Σ(f_i × HR_i)          [population-weighted average HR vs Low]
+ *      q_Low = q_pop / W
+ *      q_i   = q_Low × HR_i
+ *
+ *    Assumption: Mandsager's proportional hazards between categories hold
+ *    in the general population. The absolute mortality in Mandsager's
+ *    clinical cohort is higher (referral bias), but the *ratios* are
+ *    assumed transferable to the general population.
+ *
+ * 3. Apply user risk factors multiplicatively:
+ *      HR_user = Π(HR_rf)          [independent risks — an approximation]
+ *      q_user_i = q_i × HR_user
+ *
+ * 4. Excess mortality vs current fitness level:
+ *      Δq(target) = q_user[target] − q_user[current]
+ *
+ * 5. Express Δq in risk equivalent units (base jumps, skydives, CT scans).
+ *
+ * Dependencies (must be loaded before this file):
+ *   ssa-life-tables.js  → getQx(), lifeExpectancy()
+ *   mandsager.js        → MANDSAGER_HR, MANDSAGER_FRACTIONS, MANDSAGER_W,
+ *                         classifyMandsager(), getCategoryBounds()
+ *   friend-registry.js  → estimateFriendPercentile()
+ *   risk-factors.js     → computeRiskHR(), RISK_EQUIVALENTS
+ */
+
+const CATEGORIES = ['Low', 'BelowAvg', 'AboveAvg', 'High', 'Elite'];
+
+const CATEGORY_LABELS = {
+  Low:      'Low',
+  BelowAvg: 'Below Average',
+  AboveAvg: 'Above Average',
+  High:     'High',
+  Elite:    'Elite',
+};
+
+/**
+ * Main computation function.
+ *
+ * @param {Object} inputs
+ * @param {number}   inputs.age          Integer age (18–99)
+ * @param {'male'|'female'} inputs.sex
+ * @param {number}   inputs.vo2max       VO2 max in mL/kg/min
+ * @param {string[]} inputs.riskFactors  Array of selected risk factor IDs
+ *
+ * @returns {Object} result (see inline documentation below)
+ */
+function computeMortality(inputs) {
+  const { age, sex, vo2max, riskFactors } = inputs;
+
+  // ── Step 1: Population baseline mortality from SSA life table ─────────────
+  const qPop = getQx(age, sex);
+
+  // ── Step 2: Back-calculate per-category baseline mortality ────────────────
+  // W = Σ(f_i × HR_i)  using Mandsager cohort fractions and HRs
+  const W = MANDSAGER_W;  // pre-computed constant ≈ 0.601
+
+  const qLow = qPop / W;
+
+  // q for each Mandsager category (no risk factor adjustment yet)
+  const qByCategory = {};
+  for (const cat of CATEGORIES) {
+    qByCategory[cat] = qLow * MANDSAGER_HR[cat].hr;
+  }
+
+  // ── Step 3: Apply user risk factors ───────────────────────────────────────
+  const userRiskHR = computeRiskHR(riskFactors);
+
+  const qUserByCategory = {};
+  for (const cat of CATEGORIES) {
+    qUserByCategory[cat] = qByCategory[cat] * userRiskHR;
+  }
+
+  // ── Step 4: Current category and user's personal mortality ────────────────
+  const currentCategory = classifyMandsager(vo2max, age, sex);
+  const qUser = qUserByCategory[currentCategory];
+
+  // ── Step 5: Excess mortality vs current (for every other category) ────────
+  const deltaQ = {};
+  const riskEquivByCategory = {};
+
+  for (const cat of CATEGORIES) {
+    const dq = qUserByCategory[cat] - qUser;
+    deltaQ[cat] = dq;
+
+    // Express excess mortality in risk equivalent units
+    const equivs = {};
+    for (const re of RISK_EQUIVALENTS) {
+      equivs[re.id] = dq / re.mortalityPerEvent;
+    }
+    riskEquivByCategory[cat] = equivs;
+  }
+
+  // ── Step 6: Plausible ranges (CI propagation) ─────────────────────────────
+  // Use HR CI bounds to bracket q estimates.
+  // Conservative: each HR simultaneously at its bound (not formally a 95% CI).
+  const qRangeByCategory = {};
+  for (const cat of CATEGORIES) {
+    const hrLo = MANDSAGER_HR[cat].ci[0];
+    const hrHi = MANDSAGER_HR[cat].ci[1];
+
+    // Weighted HR using extreme bounds (all HRs at their lower or upper CI)
+    const W_lo = CATEGORIES.reduce((s, c) =>
+      s + MANDSAGER_FRACTIONS[c] * MANDSAGER_HR[c].ci[1], 0);
+    const W_hi = CATEGORIES.reduce((s, c) =>
+      s + MANDSAGER_FRACTIONS[c] * MANDSAGER_HR[c].ci[0], 0);
+
+    const qLow_lo = qPop / W_lo;
+    const qLow_hi = qPop / W_hi;
+
+    qRangeByCategory[cat] = {
+      lo: qLow_lo * hrLo * userRiskHR,
+      hi: qLow_hi * hrHi * userRiskHR,
+    };
+  }
+
+  // ── Step 7: Life expectancy impact ───────────────────────────────────────
+  // Compute remaining LE for each category relative to population average,
+  // then express delta vs current category.
+  const leByCategory = {};
+  for (const cat of CATEGORIES) {
+    // Mortality multiplier relative to population average:
+    // q_cat / q_pop * userRiskHR (already baked into qUserByCategory)
+    // multiplier for lifeExpectancy() = q_user_cat / q_pop
+    const mult = qUserByCategory[cat] / qPop;
+    leByCategory[cat] = lifeExpectancy(age, sex, mult);
+  }
+  const lePopulation = lifeExpectancy(age, sex, 1.0);
+  const leDeltaByCategory = {};
+  for (const cat of CATEGORIES) {
+    leDeltaByCategory[cat] = leByCategory[cat] - leByCategory[currentCategory];
+  }
+
+  // ── Step 8: FRIEND peer percentile (context only) ────────────────────────
+  const friendPercentile = estimateFriendPercentile(vo2max, age, sex);
+
+  // ── Step 9: VO2 max category boundaries for display ──────────────────────
+  const categoryBounds = getCategoryBounds(age, sex);
+
+  return {
+    // Inputs (echoed back for rendering)
+    age, sex, vo2max, riskFactors,
+
+    // Classification
+    currentCategory,
+    categoryLabel: CATEGORY_LABELS[currentCategory],
+    friendPercentile: Math.round(friendPercentile),
+    categoryBounds,
+
+    // Population baseline
+    qPop,
+
+    // Per-category mortality (no user risk adjustment)
+    qByCategory,
+
+    // Per-category mortality (with user risk factors applied)
+    qUserByCategory,
+
+    // User's current annual mortality
+    qUser,
+
+    // Combined user risk HR
+    userRiskHR,
+
+    // Weighted HR constant
+    W,
+    qLow,
+
+    // Excess mortality vs current category
+    deltaQ,
+
+    // Risk equivalents (N events worth of annual excess mortality)
+    riskEquivByCategory,
+
+    // Plausible range (CI-based)
+    qRangeByCategory,
+
+    // Life expectancy
+    leByCategory,
+    lePopulation,
+    leDeltaByCategory,
+  };
+}

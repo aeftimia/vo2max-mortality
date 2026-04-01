@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Methodology — VO₂ Max Mortality Calculator</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<header class="site-header">
+  <nav>
+    <span class="logo">VO₂ Max &amp; Mortality</span>
+    <a href="index.html">Calculator</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="https://github.com/yourusername/vo2max-mortality" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<div class="methodology-body">
+
+<h1>Methodology &amp; Data Sources</h1>
+<p class="muted">Last updated: 2026. Please open a GitHub issue if you find errors.</p>
+
+<div class="warning-box">
+  <strong>Not medical advice.</strong> This tool is for educational and research purposes only.
+  All estimates carry substantial uncertainty. Consult a physician before making health decisions.
+</div>
+
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<h2>Overview</h2>
+
+<p>This calculator estimates how a person's annual all-cause mortality probability
+changes across cardiorespiratory fitness (VO₂ max) levels. The approach has three steps:</p>
+<ol>
+  <li><strong>Anchor to population life tables.</strong> The SSA 2021 Period Life Table gives the
+    average annual probability of death q(age, sex) for the US population.</li>
+  <li><strong>Back-calculate fitness-stratified mortality.</strong> Using hazard ratios from
+    Mandsager et al. (2018), we derive the mortality rate for each of five fitness categories
+    such that the population-weighted average equals the life table value.</li>
+  <li><strong>Adjust for the user's risk factors.</strong> Comorbidity hazard ratios from
+    large published studies are applied multiplicatively to shift the user's personal estimate.</li>
+</ol>
+<p>Excess mortality between fitness levels is then expressed as equivalent annual
+occurrences of risky activities (base jumps, skydives, CT scans).</p>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<h2>Primary Study: Mandsager et al. 2018</h2>
+
+<p><strong>Full citation:</strong> Mandsager K, Harb S, Cremer P, Phelan D, Nissen SE, Jaber W.
+Association Between Cardiorespiratory Fitness and Long-term Mortality Among Adults Undergoing
+Exercise Treadmill Testing. <em>JAMA Netw Open.</em> 2018;1(6):e183605.
+DOI: <a href="https://doi.org/10.1001/jamanetworkopen.2018.3605" target="_blank" rel="noopener">10.1001/jamanetworkopen.2018.3605</a>.
+Open access: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/" target="_blank" rel="noopener">PMC6324439</a>.</p>
+
+<h3>Study design</h3>
+<p>Retrospective cohort study of 122,007 patients who underwent exercise treadmill testing at
+Cleveland Clinic between 1991 and 2014. Median follow-up 8.4 years; 13,637 deaths
+(1.1 million person-years). Cox proportional hazards models, adjusted for age, sex, year of test,
+and multiple comorbidities.</p>
+
+<h3>Fitness categories</h3>
+<p>Participants were classified into five groups by age- and sex-specific percentile rank within
+the cohort:</p>
+<ul>
+  <li><strong>Low:</strong> &lt; 25th percentile</li>
+  <li><strong>Below Average:</strong> 25th–49th percentile</li>
+  <li><strong>Above Average:</strong> 50th–74th percentile</li>
+  <li><strong>High:</strong> 75th–97.5th percentile</li>
+  <li><strong>Elite:</strong> ≥ 97.5th percentile</li>
+</ul>
+
+<h3>Hazard ratios (Table 2 of paper)</h3>
+<p>All-cause mortality, adjusted model, Low fitness as reference:</p>
+<table>
+  <thead><tr><th>Category</th><th>Adjusted HR</th><th>95% CI</th></tr></thead>
+  <tbody>
+    <tr><td>Low</td><td>1.00</td><td>—</td></tr>
+    <tr><td>Below Average</td><td>0.71</td><td>0.67 – 0.75</td></tr>
+    <tr><td>Above Average</td><td>0.50</td><td>0.47 – 0.54</td></tr>
+    <tr><td>High</td><td>0.39</td><td>0.36 – 0.42</td></tr>
+    <tr><td>Elite</td><td>0.20</td><td>0.16 – 0.24</td></tr>
+  </tbody>
+</table>
+<p class="small muted">Cross-checks: Elite vs High HR = 0.77 (CI 0.63–0.95);
+Below Average vs Above Average HR = 1.41 (CI 1.31–1.51). Both consistent with the table above.</p>
+
+<h3>VO₂ max category boundaries</h3>
+<p>Table 1 of the paper reports VO₂ max ranges (originally in METs; converted here via
+VO₂ = METs × 3.5) by age group and sex. These are the boundaries used in the calculator
+to classify a user's VO₂ max. Using the paper's own boundaries ensures that the HR applied
+matches the fitness level that was actually studied.</p>
+
+<h3>Key limitation: clinical cohort</h3>
+<p>Mandsager's patients were referred for exercise treadmill testing — they are not a
+representative general population sample. Low-fitness patients in a cardiology referral cohort
+are likely sicker than low-fitness people in the general population, which could inflate the
+hazard ratio for Low vs Elite fitness. We assume the <em>relative</em> hazard ratios between
+categories transfer to the general population; this is an assumption, not a proven fact.</p>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<h2>Baseline Mortality: SSA Life Table</h2>
+
+<p><strong>Source:</strong> Social Security Administration. Period Life Table, 2021.
+<a href="https://www.ssa.gov/oact/STATS/table4c6.html" target="_blank" rel="noopener">
+ssa.gov/oact/STATS/table4c6.html</a>. Public domain.</p>
+
+<p>The SSA Period Life Table gives q(x) — the probability of dying within one year for a
+person of exact age x — for both sexes. Values are taken from the 2021 table at 5-year
+anchor points and interpolated logarithmically for intermediate integer ages (standard
+actuarial practice). The interpolation error is negligible relative to other model uncertainties.</p>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<h2 id="math">Mathematical Derivation</h2>
+
+<h3>Step 1 — Population baseline</h3>
+<p>Let q<sub>pop</sub> = SSA life table q(age, sex). This is the average annual mortality
+for a person of this age and sex in the US general population.</p>
+
+<h3>Step 2 — Back-calculation of category-specific mortality</h3>
+<p>Under a proportional hazards model, mortality in each fitness category is:</p>
+<div class="math-block">q_i = HR_i × q_Low     (i = Low, BelowAvg, AboveAvg, High, Elite)</div>
+<p>The population-weighted average must equal q_pop:</p>
+<div class="math-block">q_pop = Σ_i [ f_i × q_i ]
+      = Σ_i [ f_i × HR_i × q_Low ]
+      = q_Low × Σ_i [ f_i × HR_i ]
+      = q_Low × W
+
+where W = Σ_i [ f_i × HR_i ]
+        = 0.2392 × 1.00   (Low)
+        + 0.2227 × 0.71   (Below Average)
+        + 0.2614 × 0.50   (Above Average)
+        + 0.2474 × 0.27   (High)
+        + 0.0293 × 0.20   (Elite)
+        ≈ 0.601
+
+Therefore:  q_Low = q_pop / W
+            q_i   = q_Low × HR_i   for each category i</div>
+<p>The fractions f_i are derived from sample sizes reported in Mandsager Table 1:
+Low (29,181), Below Average (27,172), Above Average (31,897), High (30,187), Elite (3,570),
+total n = 122,007.</p>
+
+<h3>Step 3 — User risk factor adjustment</h3>
+<p>The user's personal mortality at each fitness level is:</p>
+<div class="math-block">HR_user = Π_k HR_k         (product of selected comorbidity HRs)
+q_user_i = q_i × HR_user   (for each fitness category i)</div>
+<p><strong>Independence assumption:</strong> This treats risk factors as multiplying independently.
+Real comorbidities often interact (e.g., diabetes + CAD is worse than the product predicts).
+This is a known limitation; see caveats below.</p>
+
+<h3>Step 4 — Excess mortality</h3>
+<div class="math-block">Δq(target) = q_user[target] − q_user[current_category]
+
+Negative Δq = better fitness (reduced mortality)
+Positive Δq = worse fitness (increased mortality)</div>
+
+<h3 id="equivalents">Step 5 — Risk equivalents</h3>
+<p>Annual excess mortality Δq is expressed as N equivalent events:</p>
+<div class="math-block">N_base_jumps = Δq / (1/2317)   = Δq × 2317
+N_skydives   = Δq / (10/3700000) = Δq × 370000
+N_ct_scans   = Δq / 0.0005      = Δq × 2000</div>
+<p>Interpretation: "Moving from Level A to Level B saves/costs the equivalent of
+N [activity] per year in additional annual mortality risk." This is a statistical
+comparison — it does not mean literally performing those activities is equivalent
+in any other sense.</p>
+
+<h3>Step 6 — Plausible range (CI propagation)</h3>
+<p>We propagate the 95% CIs from the Mandsager HR table conservatively:</p>
+<div class="math-block">W_lo = Σ_i [ f_i × HR_i_CI_upper ]  (→ q_Low lower bound)
+W_hi = Σ_i [ f_i × HR_i_CI_lower ]  (→ q_Low upper bound)
+
+q_i_lo = (q_pop / W_hi) × HR_i_CI_lower
+q_i_hi = (q_pop / W_lo) × HR_i_CI_upper</div>
+<p>These are labeled "plausible range" rather than "95% CI" because using all HR bounds
+simultaneously is conservative — the true 95% CI would be narrower.</p>
+
+<h3>Step 7 — Life expectancy</h3>
+<p>Remaining life expectancy is computed by integrating the shifted survival curve:</p>
+<div class="math-block">LE(category) = Σ_{x=age}^{119} S(x)
+
+where S(x) = Π_{t=age}^{x} (1 − q_user_cat(t))
+and q_user_cat(t) = q_SSA(t, sex) × (q_user_cat / q_pop) at the user's age,
+    held constant across all future ages (simplifying assumption).</div>
+<p>This is a simplified model. A full actuarial projection would require fitness-stratified
+mortality rates at every future age, which are not available from Mandsager's study.</p>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<h2>Peer Comparison: FRIEND Registry</h2>
+
+<p><strong>Source:</strong> Kaminsky LA et al. Reference Standards for Cardiorespiratory Fitness
+Measured With Cardiopulmonary Exercise Testing: Data From the Fitness Registry and the Importance
+of Exercise: A National Database. <em>Mayo Clin Proc.</em> 2015;90(11):1515–1523.
+PMC: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4919021/" target="_blank" rel="noopener">PMC4919021</a>.</p>
+
+<p>The FRIEND Registry provides VO₂ max percentile norms from a large US cohort of directly
+measured cardiopulmonary exercise tests. These are used <strong>only</strong> for the peer
+comparison display ("approximately the Nth percentile of healthy US adults your age"). They are
+<strong>not</strong> used in the mortality computation, which uses Mandsager's own cohort
+boundaries for internal consistency with the hazard ratios.</p>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<h2>Risk Factor Hazard Ratios</h2>
+
+<p>Applied multiplicatively to the user's baseline mortality estimate.
+All are all-cause mortality HRs from large prospective studies or meta-analyses.</p>
+
+<table>
+  <thead>
+    <tr><th>Condition</th><th>HR</th><th>95% CI</th><th>Source</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Type 2 diabetes</td><td>1.93</td><td>1.80–2.08</td>
+        <td>Seshasai SR et al. <em>N Engl J Med.</em> 2011;364:829–841.</td></tr>
+    <tr><td>Hypertension</td><td>1.20</td><td>1.15–1.25</td>
+        <td>Prospective Studies Collaboration. <em>Lancet.</em> 2002;360:1903–1913.</td></tr>
+    <tr><td>Current smoker</td><td>1.83</td><td>1.74–1.93</td>
+        <td>Jha P et al. <em>N Engl J Med.</em> 2013;368:341–350.</td></tr>
+    <tr><td>Former smoker</td><td>1.34</td><td>1.27–1.42</td>
+        <td>Jha P et al. <em>N Engl J Med.</em> 2013;368:341–350.</td></tr>
+    <tr><td>Obesity I (BMI 30–35)</td><td>1.12</td><td>1.06–1.18</td>
+        <td>Berrington de Gonzalez A et al. <em>N Engl J Med.</em> 2010;363:2211–2219.</td></tr>
+    <tr><td>Obesity II (BMI 35–40)</td><td>1.27</td><td>1.17–1.38</td>
+        <td>Berrington de Gonzalez A et al. <em>N Engl J Med.</em> 2010;363:2211–2219.</td></tr>
+    <tr><td>Obesity III (BMI ≥40)</td><td>1.55</td><td>1.38–1.73</td>
+        <td>Berrington de Gonzalez A et al. <em>N Engl J Med.</em> 2010;363:2211–2219.</td></tr>
+    <tr><td>CAD / prior MI</td><td>2.45</td><td>1.98–3.02</td>
+        <td>Sulo G et al. <em>Eur J Prev Cardiol.</em> 2020;27:1954–1963.</td></tr>
+    <tr><td>COPD moderate (GOLD II)</td><td>1.62</td><td>1.45–1.81</td>
+        <td>Mannino DM et al. <em>Thorax.</em> 2006;61:115–120.</td></tr>
+    <tr><td>COPD severe (GOLD III–IV)</td><td>2.16</td><td>1.79–2.60</td>
+        <td>Mannino DM et al. <em>Thorax.</em> 2006;61:115–120.</td></tr>
+    <tr><td>CKD stage 3A (eGFR 45–59)</td><td>1.35</td><td>1.25–1.46</td>
+        <td>Grams ME et al. <em>JAMA.</em> 2019;322:2104–2114.</td></tr>
+    <tr><td>CKD stage 3B (eGFR 30–44)</td><td>1.85</td><td>1.68–2.04</td>
+        <td>Grams ME et al. <em>JAMA.</em> 2019;322:2104–2114.</td></tr>
+    <tr><td>Clinical depression</td><td>1.52</td><td>1.38–1.67</td>
+        <td>Walker ER et al. <em>JAMA Psychiatry.</em> 2015;72:334–341.</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<h2 id="equivalents">Risk Equivalents</h2>
+
+<table>
+  <thead><tr><th>Activity</th><th>Mortality per event</th><th>Source</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Base jump</td>
+      <td>1/2,317 = 0.0432%</td>
+      <td>Westman A et al. Analysis of adverse events in 20,850 jumps from Kjerag Massif, Norway.
+          <em>Scand J Trauma Resusc Emerg Med.</em> 2008;16:3.</td>
+    </tr>
+    <tr>
+      <td>Skydive</td>
+      <td>10/3,700,000 = 0.00027%</td>
+      <td>United States Parachute Association (USPA) 2023 Fatality Summary.
+          10 fatalities in ~3.7 million jumps.
+          <a href="https://www.uspa.org" target="_blank" rel="noopener">uspa.org</a></td>
+    </tr>
+    <tr>
+      <td>Chest CT scan</td>
+      <td>~0.05% cancer mortality</td>
+      <td>National Academies of Sciences. BEIR VII: Health Risks from Exposure to Low Levels
+          of Ionizing Radiation. 2006. Chest CT ≈ 7 mSv; linear no-threshold (LNT) model.
+          Cancer mortality ≈ 5% of cancer incidence from radiation; ~1 excess cancer death
+          per 2,000 scans at age 40.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The risk equivalent calculation converts an annual excess mortality fraction Δq into
+N equivalent single-event risks: N = Δq / (mortality per event). For example, if moving
+to a lower fitness category increases your annual mortality by 0.05%, and one base jump
+carries a 0.043% mortality risk, then 0.05% / 0.043% ≈ 1.2 base jumps per year carries
+an equivalent annual mortality burden.</p>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<h2>Limitations</h2>
+
+<ol>
+  <li><strong>Clinical cohort bias.</strong> Mandsager's cohort is referred patients, not
+    a general population sample. The absolute mortality rates in low-fitness patients may
+    be higher than in the general population, potentially inflating the apparent benefit
+    of fitness. Using only the HRs (ratios) mitigates but does not eliminate this concern.</li>
+
+  <li><strong>Causality.</strong> Observational HRs do not prove causation.
+    Low fitness may partly reflect underlying disease (reverse causation) rather than
+    being a modifiable risk factor. Exercise intervention trials show real but smaller
+    mortality benefits than the observational HRs suggest.</li>
+
+  <li><strong>Risk factor independence.</strong> Multiplying HRs assumes each risk factor's
+    effect is independent. Many conditions interact synergistically, so combined risk
+    estimates may be biased in either direction.</li>
+
+  <li><strong>Age-constant HRs.</strong> Mandsager HRs are averaged across the full age
+    range of the cohort (mean age 53) and are applied uniformly across all ages in this
+    calculator. Fitness-mortality associations likely vary by age.</li>
+
+  <li><strong>VO₂ max measurement error.</strong> Field estimates from wearables or
+    exercise tests carry ±5–15 mL/kg/min uncertainty, which is large enough to shift
+    fitness category classification.</li>
+
+  <li><strong>Proportionality across the life course.</strong> The back-calculation assumes
+    the fitness HRs hold at every age simultaneously. The true relationship may vary
+    across the lifespan.</li>
+
+  <li><strong>Population generalizability.</strong> The Mandsager cohort was predominantly
+    White, middle-aged, from a tertiary referral center in the US Midwest. Results may
+    differ in other racial, ethnic, age, or geographic groups.</li>
+
+  <li><strong>Sex as binary.</strong> Life tables and VO₂ norms use sex in a binary
+    biological sense. This is a limitation for transgender individuals.</li>
+</ol>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<h2>Full Reference List</h2>
+
+<ol class="ref-list">
+  <li>Mandsager K, Harb S, Cremer P, Phelan D, Nissen SE, Jaber W.
+    Association Between Cardiorespiratory Fitness and Long-term Mortality Among Adults
+    Undergoing Exercise Treadmill Testing.
+    <em>JAMA Netw Open.</em> 2018;1(6):e183605.
+    doi:10.1001/jamanetworkopen.2018.3605</li>
+
+  <li>Social Security Administration, Office of the Chief Actuary.
+    Period Life Table, 2021.
+    <a href="https://www.ssa.gov/oact/STATS/table4c6.html" target="_blank" rel="noopener">
+    ssa.gov/oact/STATS/table4c6.html</a>. Public domain.</li>
+
+  <li>Kaminsky LA, Arena R, Beckie TM, et al. The Importance of Cardiorespiratory
+    Fitness in the United States: The Need for a National Registry.
+    <em>Mayo Clin Proc.</em> 2015;90(11):1515–1523. PMC4919021.</li>
+
+  <li>Seshasai SR, Kaptoge S, Thompson A, et al. Diabetes Mellitus, Fasting Glucose, and
+    Risk of Cause-Specific Death. <em>N Engl J Med.</em> 2011;364(9):829–841.</li>
+
+  <li>Prospective Studies Collaboration. Age-specific relevance of usual blood pressure to
+    vascular mortality. <em>Lancet.</em> 2002;360(9349):1903–1913.</li>
+
+  <li>Jha P, Ramasundarahettige C, Landsman V, et al. 21st-Century Hazards of Smoking and
+    Benefits of Cessation in the United States. <em>N Engl J Med.</em> 2013;368(4):341–350.</li>
+
+  <li>Berrington de Gonzalez A, Hartge P, Cerhan JR, et al. Body-Mass Index and Mortality
+    among 1.46 Million White Adults. <em>N Engl J Med.</em> 2010;363(23):2211–2219.</li>
+
+  <li>Sulo G, Igland J, Nygård O, Vollset SE, Ebbing M, Tell GS. Favorable Trends in
+    Incidence of AMI in Norway. <em>Eur J Prev Cardiol.</em> 2020;27(18):1954–1963.</li>
+
+  <li>Mannino DM, Buist AS, Petty TL, Enright PL, Redd SC. Lung function and mortality in
+    the United States. <em>Thorax.</em> 2003;58(5):388–393.
+    [Note: Mannino et al. 2006 Thorax 61:115–120 used for GOLD staging HRs.]</li>
+
+  <li>Grams ME, Sang Y, Ballew SH, et al. Predicting timing of clinical outcomes in patients
+    with chronic kidney disease and severely decreased GFR.
+    <em>Kidney Int.</em> 2018;93:1442–1451.
+    [CKD Prognosis Consortium; primary citation: JAMA. 2019;322:2104–2114.]</li>
+
+  <li>Walker ER, McGee RE, Druss BG. Mortality in Mental Disorders and Global Disease Burden
+    Implications. <em>JAMA Psychiatry.</em> 2015;72(4):334–341.</li>
+
+  <li>Westman A, Rosen M, Berggren P, Björnstig U. Parachuting from fixed objects: descriptive
+    study of 106 fatal events in BASE jumping 1981–2006.
+    <em>Br J Sports Med.</em> 2008;42(6):431–436.</li>
+
+  <li>United States Parachute Association. 2023 Fatality Summary. uspa.org. Accessed 2025.</li>
+
+  <li>National Academies of Sciences, Engineering, and Medicine. Health Risks from Exposure to
+    Low Levels of Ionizing Radiation: BEIR VII Phase 2. Washington, DC: The National Academies
+    Press; 2006. doi:10.17226/11340.</li>
+</ol>
+
+</div><!-- /methodology-body -->
+
+<footer class="site-footer">
+  <p>Open source · MIT License ·
+     <a href="https://github.com/yourusername/vo2max-mortality" target="_blank" rel="noopener">GitHub</a> ·
+     Not medical advice</p>
+</footer>
+
+</body>
+</html>
