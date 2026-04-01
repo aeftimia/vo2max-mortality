@@ -9,10 +9,13 @@
  * ─────────────────────
  * 1. Obtain population baseline mortality q_pop from SSA life table.
  *
- * 2. Back-calculate mortality for each fitness category:
- *      W = Σ(f_i × HR_i)          [population-weighted average HR vs Low]
- *      q_Low = q_pop / W
- *      q_i   = q_Low × HR_i
+ * 2. Compute fitness-stratified mortality:
+ *      H_bar = Σ(f_i × HR_i)      [population-weighted average HR]
+ *      q_i   = q_pop × HR_i / H_bar
+ *
+ *    Each group's mortality is the population rate scaled by how far its
+ *    HR is above or below the weighted average. No single category is
+ *    treated as a special reference — every group is computed the same way.
  *
  *    Assumption: Mandsager's proportional hazards between categories hold
  *    in the general population. The absolute mortality in Mandsager's
@@ -26,7 +29,7 @@
  * 4. Excess mortality vs current fitness level:
  *      Δq(target) = q_user[target] − q_user[current]
  *
- * 5. Express Δq in risk equivalent units (base jumps, skydives, CT scans).
+ * 5. Express Δq in risk equivalent units (base jumps, anesthesias, skydives).
  *
  * Dependencies (must be loaded before this file):
  *   ssa-life-tables.js  → getQx(), lifeExpectancy()
@@ -38,13 +41,7 @@
 
 const CATEGORIES = ['Low', 'BelowAvg', 'AboveAvg', 'High', 'Elite'];
 
-const CATEGORY_LABELS = {
-  Low:      'Low',
-  BelowAvg: 'Below Average',
-  AboveAvg: 'Above Average',
-  High:     'High',
-  Elite:    'Elite',
-};
+// Category labels: use CAT_LABEL from formatter.js (single source of truth)
 
 /**
  * Main computation function.
@@ -63,16 +60,14 @@ function computeMortality(inputs) {
   // ── Step 1: Population baseline mortality from SSA life table ─────────────
   const qPop = getQx(age, sex);
 
-  // ── Step 2: Back-calculate per-category baseline mortality ────────────────
-  // W = Σ(f_i × HR_i)  using Mandsager cohort fractions and HRs
-  const W = MANDSAGER_W;  // pre-computed constant ≈ 0.630
+  // ── Step 2: Fitness-stratified mortality ───────────────────────────────────
+  // H_bar = Σ(f_i × HR_i)  — population-weighted average HR
+  // q_i   = q_pop × HR_i / H_bar
+  const H_bar = MANDSAGER_W;  // pre-computed constant ≈ 0.630
 
-  const qLow = qPop / W;
-
-  // q for each Mandsager category (no risk factor adjustment yet)
   const qByCategory = {};
   for (const cat of CATEGORIES) {
-    qByCategory[cat] = qLow * MANDSAGER_HR[cat].hr;
+    qByCategory[cat] = qPop * MANDSAGER_HR[cat].hr / H_bar;
   }
 
   // ── Step 3: Apply user risk factors ───────────────────────────────────────
@@ -105,20 +100,19 @@ function computeMortality(inputs) {
 
   // ── Step 6: Plausible ranges (CI propagation) ─────────────────────────────
   // Conservative bounds using HR 95% CIs. Not a formal joint CI.
-  const W_lo = CATEGORIES.reduce((s, c) =>
+  // H_bar_hi uses upper CI bounds; H_bar_lo uses lower CI bounds.
+  const H_bar_hi = CATEGORIES.reduce((s, c) =>
     s + MANDSAGER_FRACTIONS[c] * MANDSAGER_HR[c].ci[1], 0);
-  const W_hi = CATEGORIES.reduce((s, c) =>
+  const H_bar_lo = CATEGORIES.reduce((s, c) =>
     s + MANDSAGER_FRACTIONS[c] * MANDSAGER_HR[c].ci[0], 0);
-  const qLow_lo = qPop / W_lo;
-  const qLow_hi = qPop / W_hi;
 
   const qRangeByCategory = {};
   for (const cat of CATEGORIES) {
     const hrLo = MANDSAGER_HR[cat].ci[0];
     const hrHi = MANDSAGER_HR[cat].ci[1];
     qRangeByCategory[cat] = {
-      lo: qLow_lo * hrLo * userRiskHR,
-      hi: qLow_hi * hrHi * userRiskHR,
+      lo: qPop * hrLo / H_bar_hi * userRiskHR,
+      hi: qPop * hrHi / H_bar_lo * userRiskHR,
     };
   }
 
@@ -193,7 +187,7 @@ function computeMortality(inputs) {
 
     // Classification
     currentCategory,
-    categoryLabel: CATEGORY_LABELS[currentCategory],
+    categoryLabel: CAT_LABEL[currentCategory],
     friendPercentile: Math.round(friendPercentile),
     categoryBounds,
 
@@ -212,9 +206,8 @@ function computeMortality(inputs) {
     // Combined user risk HR
     userRiskHR,
 
-    // Weighted HR constant
-    W,
-    qLow,
+    // Weighted average HR (normalization constant)
+    H_bar,
 
     // Excess mortality vs current category
     deltaQ,

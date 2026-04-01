@@ -73,7 +73,38 @@ const Form = {
     document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
   },
 
+  buildCheckboxes() {
+    const container = document.getElementById('risk-factor-checkboxes');
+    if (!container) return;
+    container.innerHTML = '';
+    for (const rf of RISK_FACTORS) {
+      const cite = CITATIONS[rf.cite];
+      const studyLink = cite
+        ? ` <a href="${cite.url}" target="_blank" rel="noopener" class="small muted">[study]</a>`
+        : '';
+      const label = document.createElement('label');
+      label.innerHTML =
+        `<input type="checkbox" class="risk-factor-cb" id="cb-${rf.id}" value="${rf.id}"> ` +
+        rf.label + studyLink;
+      container.appendChild(label);
+    }
+  },
+
+  buildVO2Methods() {
+    const container = document.getElementById('vo2-methods-list');
+    if (!container) return;
+    container.innerHTML = `
+      <li><strong>Smartwatch estimate:</strong> Many Garmin, Apple Watch, and Polar devices estimate VO₂ max from heart rate during runs. These are typically within ${citeLink('smartwatch2023', '±5 mL/kg/min')}.</li>
+      <li><strong>${citeLink('cooper1968', 'Cooper 12-minute run test')}:</strong> VO₂ max ≈ (distance in meters − 504.9) / 44.73. Run as far as you can in 12 minutes on a flat surface.</li>
+      <li><strong>${citeLink('kline1987', 'Rockport 1-mile walk test')}:</strong> Walk 1 mile as fast as possible; use published formula with finish time, heart rate, age, sex, and weight.</li>
+      <li><strong>Clinical exercise test (gold standard):</strong> VO₂ max measured directly via ${citeLink('cpet2010', 'cardiopulmonary exercise testing (CPET)')} in a sports medicine lab or cardiologist's office.</li>
+    `;
+  },
+
   init() {
+    this.buildCheckboxes();
+    this.buildVO2Methods();
+
     document.getElementById('calculate-btn').addEventListener('click', () => this.onSubmit());
     document.getElementById('calculate-form').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.onSubmit();

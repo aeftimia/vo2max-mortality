@@ -27,9 +27,9 @@ const Results = {
       `Your VO₂ max of <strong>${vo2max.toFixed(1)} mL/kg/min</strong> places you in the ` +
       `<strong class="cat-${currentCategory}">${categoryLabel}</strong> fitness category ` +
       `for a ${age}-year-old ${sexLabel} ` +
-      `(<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/" target="_blank" rel="noopener">Mandsager 2018</a>).` +
+      `(${citeLink('mandsager2018')}).` +
       `<br>Among healthy US adults your age, this is ${pctText} ` +
-      `(<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4919021/" target="_blank" rel="noopener">FRIEND Registry</a> — ` +
+      `(${citeLink('friend2015')} — ` +
       `separate norms, different thresholds from the Mandsager categories above).`;
 
     const riskNote = userRiskHR > 1
@@ -164,7 +164,7 @@ const Results = {
       approximately <strong>${fmtYears(eliteLE)}</strong> of remaining life expectancy.
       Declining to <strong>Low</strong> fitness would subtract
       approximately <strong>${fmtYears(Math.abs(lowLE))}</strong>
-      (based on SSA 2021 life table integration).
+      (based on ${citeLink('ssaLifeTable', 'SSA 2021 life table')} integration).
     `;
   },
 

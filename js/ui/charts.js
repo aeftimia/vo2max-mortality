@@ -6,13 +6,11 @@
 let mortalityChart = null;
 
 const Charts = {
-  COLORS: {
-    Low:      '#ef4444',
-    BelowAvg: '#f97316',
-    AboveAvg: '#eab308',
-    High:     '#22c55e',
-    Elite:    '#3b82f6',
-    current:  '#7c3aed',  // highlight for current category
+  // Read colors from CSS custom properties (single source of truth in main.css)
+  getColor(cat) {
+    const varMap = { Low: '--c-low', BelowAvg: '--c-below', AboveAvg: '--c-above',
+                     High: '--c-high', Elite: '--c-elite', current: '--c-current' };
+    return getComputedStyle(document.documentElement).getPropertyValue(varMap[cat]).trim();
   },
 
   render(result) {
@@ -27,7 +25,7 @@ const Charts = {
     const errorBarsHi = cats.map(c => +(result.qRangeByCategory[c].hi * 100).toFixed(4));
 
     const backgroundColors = cats.map(c =>
-      c === result.currentCategory ? this.COLORS.current : this.COLORS[c]
+      c === result.currentCategory ? this.getColor('current') : this.getColor(c)
     );
     const borderColors = backgroundColors;
 

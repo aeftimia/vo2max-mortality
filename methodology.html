@@ -55,18 +55,13 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
   <li><strong>Adjust for the user's risk factors.</strong> Comorbidity hazard ratios from
     large published studies are applied multiplicatively to shift the user's personal estimate.</li>
 </ol>
-<p>Excess mortality between fitness levels is then expressed as equivalent annual
-occurrences of risky activities (base jumps, skydives, CT scans).</p>
+<p id="overview-equiv-activities"><!-- filled by JS --></p>
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
 <h2>Primary Study: Mandsager et al. 2018</h2>
 
-<p><strong>Full citation:</strong> Mandsager K, Harb S, Cremer P, Phelan D, Nissen SE, Jaber W.
-Association Between Cardiorespiratory Fitness and Long-term Mortality Among Adults Undergoing
-Exercise Treadmill Testing. <em>JAMA Netw Open.</em> 2018;1(6):e183605.
-DOI: <a href="https://doi.org/10.1001/jamanetworkopen.2018.3605" target="_blank" rel="noopener">10.1001/jamanetworkopen.2018.3605</a>.
-Open access: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/" target="_blank" rel="noopener">PMC6324439</a>.</p>
+<p id="mandsager-citation"><!-- filled by JS --></p>
 
 <h3>Study design</h3>
 <p>Retrospective cohort study of 122,007 patients who underwent exercise treadmill testing at
@@ -87,15 +82,9 @@ the cohort:</p>
 
 <h3>Hazard ratios (Table 2 of paper)</h3>
 <p>All-cause mortality, adjusted model, Low fitness as reference:</p>
-<table>
+<table id="mandsager-hr-table">
   <thead><tr><th>Category</th><th>Adjusted HR</th><th>95% CI</th></tr></thead>
-  <tbody>
-    <tr><td>Low</td><td>1.00</td><td>—</td></tr>
-    <tr><td>Below Average</td><td>0.71</td><td>0.67 – 0.75</td></tr>
-    <tr><td>Above Average</td><td>0.50</td><td>0.47 – 0.54</td></tr>
-    <tr><td>High</td><td>0.39</td><td>0.36 – 0.42</td></tr>
-    <tr><td>Elite</td><td>0.20</td><td>0.16 – 0.24</td></tr>
-  </tbody>
+  <tbody><!-- filled by JS --></tbody>
 </table>
 <p class="small muted">Cross-checks: Elite vs High HR = 0.77 (CI 0.63–0.95);
 Below Average vs Above Average HR = 1.41 (CI 1.31–1.51). Both consistent with the table above.</p>
@@ -117,15 +106,10 @@ categories transfer to the general population; this is an assumption, not a prov
 <!-- ──────────────────────────────────────────────────────────────────────── -->
 <h2>Baseline Mortality: US Life Tables 2021</h2>
 
-<p><strong>Source:</strong> The q(x) values — probability of dying within one year at exact age x —
-come from the CDC National Vital Statistics Reports, Vol. 72, No. 12 (November 2023),
-specifically Table 2 (males) and Table 3 (females) of "United States Life Tables, 2021."
-All integer ages 0–99 are transcribed directly from those tables.
-Ages 100–119 use log-linear extrapolation anchored at age 99, matching standard actuarial
-practice for open-ended intervals.</p>
+<p id="life-table-source"><!-- filled by JS --></p>
 
 <p>These values are essentially equivalent to the
-<a href="https://www.ssa.gov/oact/STATS/table4c6.html" target="_blank" rel="noopener">SSA Period Life Table, 2021</a>
+<span id="ssa-link"><!-- filled by JS --></span>
 (typically &lt;2% difference at any age), as both derive from the same underlying US mortality data.
 Public domain — US federal government work.</p>
 
@@ -134,25 +118,26 @@ Public domain — US federal government work.</p>
 <h2 id="math">Mathematical Derivation</h2>
 
 <h3>Step 1 — Population baseline</h3>
-<p>Let q<sub>pop</sub> = SSA life table q(age, sex). This is the average annual mortality
+<p>Let \(q_{\text{pop}}\) = SSA life table q(age, sex). This is the average annual mortality
 for a person of this age and sex in the US general population.</p>
 
-<h3>Step 2 — Back-calculation of category-specific mortality</h3>
-<p>Under a proportional hazards model, mortality in each fitness category is:</p>
-<div class="math-block">
-$$q_i = \mathrm{HR}_i \times q_{\text{Low}}, \qquad i \in \{\text{Low, BelowAvg, AboveAvg, High, Elite}\}$$
-</div>
-<p>The population-weighted average must equal \(q_{\text{pop}}\):</p>
-<div class="math-block">
-$$q_{\text{pop}} = \sum_i f_i \cdot q_i = \sum_i f_i \cdot \mathrm{HR}_i \cdot q_{\text{Low}} = q_{\text{Low}} \cdot W$$
+<h3>Step 2 — Fitness-stratified mortality</h3>
+<p>The Mandsager hazard ratios tell us how much more or less likely each fitness group is to die
+relative to the others. To convert these <em>relative</em> ratios into <em>absolute</em> mortality
+rates, we need to find the scale factor that makes the population-weighted average match
+\(q_{\text{pop}}\).</p>
 
-$$W = \sum_i f_i \cdot \mathrm{HR}_i = \underbrace{0.2392 \times 1.00}_{\text{Low}} + \underbrace{0.2227 \times 0.71}_{\text{BelowAvg}} + \underbrace{0.2614 \times 0.50}_{\text{AboveAvg}} + \underbrace{0.2474 \times 0.39}_{\text{High}} + \underbrace{0.0293 \times 0.20}_{\text{Elite}} \approx 0.630$$
-
-$$\therefore \quad q_{\text{Low}} = \frac{q_{\text{pop}}}{W}, \qquad q_i = q_{\text{Low}} \cdot \mathrm{HR}_i$$
+<p>If mortality is proportional to HR, then each group's mortality is some constant \(c\) times
+its HR. The population average constrains that constant:</p>
+<div class="math-block">
+$$q_{\text{pop}} = \sum_i f_i \cdot c \cdot \mathrm{HR}_i = c \cdot \underbrace{\sum_i f_i \cdot \mathrm{HR}_i}_{\bar{H}}$$
 </div>
-<p>The fractions f_i are derived from sample sizes reported in Mandsager Table 1:
-Low (29,181), Below Average (27,172), Above Average (31,897), High (30,187), Elite (3,570),
-total n = 122,007.</p>
+<p>Solving for \(c\) and substituting back gives the group-specific mortality directly:</p>
+<div class="math-block" id="w-derivation"><!-- filled by JS --></div>
+<p id="cohort-fractions"><!-- filled by JS --></p>
+<p>In words: each group's mortality equals the population rate, scaled by how far that group's
+HR is above or below the population-weighted average HR. No single group plays a
+privileged role — every category is treated symmetrically.</p>
 
 <h3>Step 3 — User risk factor adjustment</h3>
 <p>The user's personal mortality at each fitness level is:</p>
@@ -173,28 +158,19 @@ $$\Delta q(\text{target}) = q_{\text{user}}[\text{target}] - q_{\text{user}}[\te
 
 <h3 id="equivalents">Step 5 — Risk equivalents</h3>
 <p>Annual excess mortality Δq is expressed as N equivalent events:</p>
-<div class="math-block">
-$$N_{\text{activity}} = \frac{\Delta q}{p_{\text{activity}}}$$
-
-$$N_{\text{base jumps}} = \frac{\Delta q}{1/2317} = \Delta q \times 2{,}317$$
-
-$$N_{\text{anesthesias}} = \frac{\Delta q}{1/100{,}000} = \Delta q \times 100{,}000$$
-
-$$N_{\text{skydives}} = \frac{\Delta q}{10/3{,}700{,}000} = \Delta q \times 370{,}000$$
-</div>
+<div class="math-block" id="equiv-formulas"><!-- filled by JS --></div>
 <p>Interpretation: "Moving from Level A to Level B saves/costs the equivalent of
 N [activity] per year in additional annual mortality risk." This is a statistical
 comparison — it does not mean literally performing those activities is equivalent
 in any other sense.</p>
 
 <h3>Step 6 — Plausible range (CI propagation)</h3>
-<p>We propagate the 95% CIs from the Mandsager HR table conservatively:</p>
+<p>We propagate the 95% CIs from the Mandsager HR table conservatively. The same
+formula applies, but we vary all HRs to their CI bounds simultaneously:</p>
 <div class="math-block">
-$$W_{\text{lo}} = \sum_i f_i \cdot \mathrm{HR}_{i,\text{CI upper}} \implies q_{\text{Low,lo}} = \frac{q_{\text{pop}}}{W_{\text{lo}}}$$
+$$\bar{H}_{\text{hi}} = \sum_i f_i \cdot \mathrm{HR}_{i,\text{CI upper}}, \qquad \bar{H}_{\text{lo}} = \sum_i f_i \cdot \mathrm{HR}_{i,\text{CI lower}}$$
 
-$$W_{\text{hi}} = \sum_i f_i \cdot \mathrm{HR}_{i,\text{CI lower}} \implies q_{\text{Low,hi}} = \frac{q_{\text{pop}}}{W_{\text{hi}}}$$
-
-$$q_{i,\text{lo}} = q_{\text{Low,lo}} \times \mathrm{HR}_{i,\text{CI lower}}, \qquad q_{i,\text{hi}} = q_{\text{Low,hi}} \times \mathrm{HR}_{i,\text{CI upper}}$$
+$$q_{i,\text{lo}} = q_{\text{pop}} \times \frac{\mathrm{HR}_{i,\text{CI lower}}}{\bar{H}_{\text{hi}}}, \qquad q_{i,\text{hi}} = q_{\text{pop}} \times \frac{\mathrm{HR}_{i,\text{CI upper}}}{\bar{H}_{\text{lo}}}$$
 </div>
 <p>These are labeled "plausible range" rather than "95% CI" because using all HR bounds
 simultaneously is conservative — the true 95% CI would be narrower.</p>
@@ -211,7 +187,7 @@ baseline:</p>
 $$m_i = \frac{q_{\text{user},i}(a)}{q_{\text{pop}}(a)}$$
 </div>
 <p>This multiplier combines the fitness HR and any selected comorbidity HRs:
-\(m_i = \mathrm{HR}_i / W \times \mathrm{HR}_{\text{user}}\).
+\(m_i = (\mathrm{HR}_i / \bar{H}) \times \mathrm{HR}_{\text{user}}\).
 We apply it uniformly to every future age in the life table — a simplifying assumption
 discussed below.</p>
 
@@ -245,10 +221,7 @@ change. They should be interpreted as illustrative comparisons, not clinical pre
 <!-- ──────────────────────────────────────────────────────────────────────── -->
 <h2>Peer Comparison: FRIEND Registry</h2>
 
-<p><strong>Source:</strong> Kaminsky LA et al. Reference Standards for Cardiorespiratory Fitness
-Measured With Cardiopulmonary Exercise Testing: Data From the Fitness Registry and the Importance
-of Exercise: A National Database. <em>Mayo Clin Proc.</em> 2015;90(11):1515–1523.
-PMC: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4919021/" target="_blank" rel="noopener">PMC4919021</a>.</p>
+<p id="friend-citation"><!-- filled by JS --></p>
 
 <p>The FRIEND Registry provides VO₂ max percentile norms from a large US cohort of directly
 measured cardiopulmonary exercise tests. These are used <strong>only</strong> for the peer
@@ -263,69 +236,20 @@ boundaries for internal consistency with the hazard ratios.</p>
 <p>Applied multiplicatively to the user's baseline mortality estimate.
 All are all-cause mortality HRs from large prospective studies or meta-analyses.</p>
 
-<table>
+<table id="risk-factor-table">
   <thead>
     <tr><th>Condition</th><th>HR</th><th>95% CI</th><th>Source</th></tr>
   </thead>
-  <tbody>
-    <tr><td>Type 2 diabetes</td><td>1.93</td><td>1.80–2.08</td>
-        <td>Seshasai SR et al. <em>N Engl J Med.</em> 2011;364:829–841.</td></tr>
-    <tr><td>Hypertension</td><td>1.20</td><td>1.15–1.25</td>
-        <td>Prospective Studies Collaboration. <em>Lancet.</em> 2002;360:1903–1913.</td></tr>
-    <tr><td>Current smoker</td><td>1.83</td><td>1.74–1.93</td>
-        <td>Jha P et al. <em>N Engl J Med.</em> 2013;368:341–350.</td></tr>
-    <tr><td>Former smoker</td><td>1.34</td><td>1.27–1.42</td>
-        <td>Jha P et al. <em>N Engl J Med.</em> 2013;368:341–350.</td></tr>
-    <tr><td>Obesity I (BMI 30–35)</td><td>1.12</td><td>1.06–1.18</td>
-        <td>Berrington de Gonzalez A et al. <em>N Engl J Med.</em> 2010;363:2211–2219.</td></tr>
-    <tr><td>Obesity II (BMI 35–40)</td><td>1.27</td><td>1.17–1.38</td>
-        <td>Berrington de Gonzalez A et al. <em>N Engl J Med.</em> 2010;363:2211–2219.</td></tr>
-    <tr><td>Obesity III (BMI ≥40)</td><td>1.55</td><td>1.38–1.73</td>
-        <td>Berrington de Gonzalez A et al. <em>N Engl J Med.</em> 2010;363:2211–2219.</td></tr>
-    <tr><td>CAD / prior MI</td><td>2.45</td><td>1.98–3.02</td>
-        <td>Sulo G et al. <em>Eur J Prev Cardiol.</em> 2020;27:1954–1963.</td></tr>
-    <tr><td>COPD moderate (GOLD II)</td><td>1.62</td><td>1.45–1.81</td>
-        <td>Mannino DM et al. <em>Thorax.</em> 2006;61:115–120.</td></tr>
-    <tr><td>COPD severe (GOLD III–IV)</td><td>2.16</td><td>1.79–2.60</td>
-        <td>Mannino DM et al. <em>Thorax.</em> 2006;61:115–120.</td></tr>
-    <tr><td>CKD stage 3A (eGFR 45–59)</td><td>1.35</td><td>1.25–1.46</td>
-        <td>Grams ME et al. <em>JAMA.</em> 2019;322:2104–2114.</td></tr>
-    <tr><td>CKD stage 3B (eGFR 30–44)</td><td>1.85</td><td>1.68–2.04</td>
-        <td>Grams ME et al. <em>JAMA.</em> 2019;322:2104–2114.</td></tr>
-    <tr><td>Clinical depression</td><td>1.52</td><td>1.38–1.67</td>
-        <td>Walker ER et al. <em>JAMA Psychiatry.</em> 2015;72:334–341.</td></tr>
-  </tbody>
+  <tbody><!-- filled by JS --></tbody>
 </table>
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
-<h2 id="equivalents">Risk Equivalents</h2>
+<h2 id="equivalents-section">Risk Equivalents</h2>
 
-<table>
+<table id="risk-equiv-table">
   <thead><tr><th>Activity</th><th>Mortality per event</th><th>Source</th></tr></thead>
-  <tbody>
-    <tr>
-      <td>Base jump</td>
-      <td>1/2,317 = 0.0432%</td>
-      <td>Westman A et al. Analysis of adverse events in 20,850 jumps from Kjerag Massif, Norway.
-          <em>Scand J Trauma Resusc Emerg Med.</em> 2008;16:3.</td>
-    </tr>
-    <tr>
-      <td>Skydive</td>
-      <td>10/3,700,000 = 0.00027%</td>
-      <td>United States Parachute Association (USPA) 2023 Fatality Summary.
-          10 fatalities in ~3.7 million jumps.
-          <a href="https://www.uspa.org" target="_blank" rel="noopener">uspa.org</a></td>
-    </tr>
-    <tr>
-      <td>General anesthesia</td>
-      <td>~1/100,000 = 0.001%</td>
-      <td>Braz LG et al. Mortality in anesthesia: a systematic review.
-          <em>Clinics.</em> 2009;64(10):999-1006.
-          <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2763076/" target="_blank" rel="noopener">PMC2763076</a>.
-          Rate for healthy patients (ASA I–II) in developed countries.</td>
-    </tr>
-  </tbody>
+  <tbody><!-- filled by JS --></tbody>
 </table>
 
 <p>The risk equivalent calculation converts an annual excess mortality fraction Δq into
@@ -378,59 +302,7 @@ an equivalent annual mortality burden.</p>
 <!-- ──────────────────────────────────────────────────────────────────────── -->
 <h2>Full Reference List</h2>
 
-<ol class="ref-list">
-  <li>Mandsager K, Harb S, Cremer P, Phelan D, Nissen SE, Jaber W.
-    Association Between Cardiorespiratory Fitness and Long-term Mortality Among Adults
-    Undergoing Exercise Treadmill Testing.
-    <em>JAMA Netw Open.</em> 2018;1(6):e183605.
-    doi:10.1001/jamanetworkopen.2018.3605</li>
-
-  <li>Social Security Administration, Office of the Chief Actuary.
-    Period Life Table, 2021.
-    <a href="https://www.ssa.gov/oact/STATS/table4c6.html" target="_blank" rel="noopener">
-    ssa.gov/oact/STATS/table4c6.html</a>. Public domain.</li>
-
-  <li>Kaminsky LA, Arena R, Beckie TM, et al. The Importance of Cardiorespiratory
-    Fitness in the United States: The Need for a National Registry.
-    <em>Mayo Clin Proc.</em> 2015;90(11):1515–1523. PMC4919021.</li>
-
-  <li>Seshasai SR, Kaptoge S, Thompson A, et al. Diabetes Mellitus, Fasting Glucose, and
-    Risk of Cause-Specific Death. <em>N Engl J Med.</em> 2011;364(9):829–841.</li>
-
-  <li>Prospective Studies Collaboration. Age-specific relevance of usual blood pressure to
-    vascular mortality. <em>Lancet.</em> 2002;360(9349):1903–1913.</li>
-
-  <li>Jha P, Ramasundarahettige C, Landsman V, et al. 21st-Century Hazards of Smoking and
-    Benefits of Cessation in the United States. <em>N Engl J Med.</em> 2013;368(4):341–350.</li>
-
-  <li>Berrington de Gonzalez A, Hartge P, Cerhan JR, et al. Body-Mass Index and Mortality
-    among 1.46 Million White Adults. <em>N Engl J Med.</em> 2010;363(23):2211–2219.</li>
-
-  <li>Sulo G, Igland J, Nygård O, Vollset SE, Ebbing M, Tell GS. Favorable Trends in
-    Incidence of AMI in Norway. <em>Eur J Prev Cardiol.</em> 2020;27(18):1954–1963.</li>
-
-  <li>Mannino DM, Buist AS, Petty TL, Enright PL, Redd SC. Lung function and mortality in
-    the United States. <em>Thorax.</em> 2003;58(5):388–393.
-    [Note: Mannino et al. 2006 Thorax 61:115–120 used for GOLD staging HRs.]</li>
-
-  <li>Grams ME, Sang Y, Ballew SH, et al. Predicting timing of clinical outcomes in patients
-    with chronic kidney disease and severely decreased GFR.
-    <em>Kidney Int.</em> 2018;93:1442–1451.
-    [CKD Prognosis Consortium; primary citation: JAMA. 2019;322:2104–2114.]</li>
-
-  <li>Walker ER, McGee RE, Druss BG. Mortality in Mental Disorders and Global Disease Burden
-    Implications. <em>JAMA Psychiatry.</em> 2015;72(4):334–341.</li>
-
-  <li>Westman A, Rosen M, Berggren P, Björnstig U. Parachuting from fixed objects: descriptive
-    study of 106 fatal events in BASE jumping 1981–2006.
-    <em>Br J Sports Med.</em> 2008;42(6):431–436.</li>
-
-  <li>United States Parachute Association. 2023 Fatality Summary. uspa.org. Accessed 2025.</li>
-
-  <li>Braz LG, Módolo NS, do Nascimento P Jr, et al. Mortality in anesthesia: a systematic
-    review. <em>Clinics.</em> 2009;64(10):999-1006.
-    <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2763076/" target="_blank" rel="noopener">PMC2763076</a>.</li>
-</ol>
+<ol class="ref-list" id="reference-list"><!-- filled by JS --></ol>
 
 </div><!-- /methodology-body -->
 
@@ -439,6 +311,129 @@ an equivalent annual mortality burden.</p>
      <a href="https://github.com/aeftimia/vo2max-mortality" target="_blank" rel="noopener">GitHub</a> ·
      Not medical advice</p>
 </footer>
+
+<!-- Data files (same as calculator page — single source of truth) -->
+<script src="js/data/citations.js"></script>
+<script src="js/data/mandsager.js"></script>
+<script src="js/data/risk-factors.js"></script>
+<script src="js/core/formatter.js"></script>
+
+<script>
+(function() {
+  const CATS = ['Low', 'BelowAvg', 'AboveAvg', 'High', 'Elite'];
+  const N_TOTAL = 122007;
+
+  // ── Mandsager full citation ──────────────────────────────────────────────
+  const mc = CITATIONS.mandsager2018;
+  document.getElementById('mandsager-citation').innerHTML =
+    `<strong>Full citation:</strong> ${mc.full}` +
+    (mc.doi ? ` DOI: <a href="https://doi.org/${mc.doi}" target="_blank" rel="noopener">${mc.doi}</a>.` : '') +
+    (mc.pmc ? ` Open access: <a href="${mc.url}" target="_blank" rel="noopener">${mc.pmc}</a>.` : '');
+
+  // ── Mandsager HR table ───────────────────────────────────────────────────
+  const hrTbody = document.querySelector('#mandsager-hr-table tbody');
+  for (const cat of CATS) {
+    const d = MANDSAGER_HR[cat];
+    const ciStr = cat === 'Low' ? '—' : `${d.ci[0].toFixed(2)} – ${d.ci[1].toFixed(2)}`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${CAT_LABEL[cat]}</td><td>${d.hr.toFixed(2)}</td><td>${ciStr}</td>`;
+    hrTbody.appendChild(tr);
+  }
+
+  // ── W derivation (Step 2 math block) ─────────────────────────────────────
+  const terms = CATS.map(cat => {
+    const f = MANDSAGER_FRACTIONS[cat];
+    const hr = MANDSAGER_HR[cat].hr;
+    return `\\underbrace{${f.toFixed(4)} \\times ${hr.toFixed(2)}}_{\\text{${CAT_LABEL[cat]}}}`;
+  });
+  const W = MANDSAGER_W;
+  document.getElementById('w-derivation').innerHTML =
+    `$$\\boxed{\\; q_i = q_{\\text{pop}} \\times \\frac{\\mathrm{HR}_i}{\\bar{H}} \\;}$$\n\n` +
+    `$$\\bar{H} = \\sum_i f_i \\cdot \\mathrm{HR}_i = ${terms.join(' + ')} \\approx ${W.toFixed(3)}$$`;
+
+  // ── Cohort fractions paragraph ───────────────────────────────────────────
+  const nParts = CATS.map(cat => {
+    const n = Math.round(MANDSAGER_FRACTIONS[cat] * N_TOTAL);
+    return `${CAT_LABEL[cat]} (${n.toLocaleString()})`;
+  });
+  document.getElementById('cohort-fractions').innerHTML =
+    `The fractions f<sub>i</sub> are derived from sample sizes reported in Mandsager Table 1: ` +
+    nParts.join(', ') + `, total n = ${N_TOTAL.toLocaleString()}.`;
+
+  // ── Risk equivalent formulas (Step 5) ────────────────────────────────────
+  const equivLines = RISK_EQUIVALENTS.map(re => {
+    const invRate = Math.round(1 / re.mortalityPerEvent);
+    // Express the fraction nicely
+    const fracStr = re.mortalityPerEvent < 0.001
+      ? `1/${invRate.toLocaleString()}`
+      : `1/${invRate.toLocaleString()}`;
+    return `$$N_{\\text{${re.labelPlural}}} = \\frac{\\Delta q}{${fracStr}} = \\Delta q \\times ${invRate.toLocaleString()}$$`;
+  });
+  document.getElementById('equiv-formulas').innerHTML =
+    `$$N_{\\text{activity}} = \\frac{\\Delta q}{p_{\\text{activity}}}$$\n\n` +
+    equivLines.join('\n\n');
+
+  // ── Overview equiv activities sentence ───────────────────────────────────
+  const actNames = RISK_EQUIVALENTS.map(re => re.labelPlural);
+  document.getElementById('overview-equiv-activities').innerHTML =
+    `Excess mortality between fitness levels is then expressed as equivalent annual ` +
+    `occurrences of risky activities (${actNames.join(', ')}).`;
+
+  // ── Life table source ────────────────────────────────────────────────────
+  const nvss = CITATIONS.nvss2021;
+  document.getElementById('life-table-source').innerHTML =
+    `<strong>Source:</strong> The q(x) values — probability of dying within one year at exact age x — ` +
+    `come from the ${citeLink('nvss2021', nvss.full.split('.').slice(0, 2).join('.'))}. ` +
+    `All integer ages 0–99 are transcribed directly from those tables. ` +
+    `Ages 100–119 use log-linear extrapolation anchored at age 99, matching standard actuarial ` +
+    `practice for open-ended intervals.`;
+
+  document.getElementById('ssa-link').innerHTML =
+    citeLink('ssaLifeTable', 'SSA Period Life Table, 2021');
+
+  // ── FRIEND citation ──────────────────────────────────────────────────────
+  const fr = CITATIONS.friend2015;
+  document.getElementById('friend-citation').innerHTML =
+    `<strong>Source:</strong> ${citeRef('friend2015')}`;
+
+  // ── Risk factor HR table ─────────────────────────────────────────────────
+  const rfTbody = document.querySelector('#risk-factor-table tbody');
+  for (const rf of RISK_FACTORS) {
+    const tr = document.createElement('tr');
+    const cite = CITATIONS[rf.cite];
+    const sourceText = cite ? citeRef(rf.cite) : rf.cite;
+    tr.innerHTML =
+      `<td>${rf.label}</td>` +
+      `<td>${rf.hr.toFixed(2)}</td>` +
+      `<td>${rf.ci[0].toFixed(2)}–${rf.ci[1].toFixed(2)}</td>` +
+      `<td>${sourceText}</td>`;
+    rfTbody.appendChild(tr);
+  }
+
+  // ── Risk equivalents table ───────────────────────────────────────────────
+  const reTbody = document.querySelector('#risk-equiv-table tbody');
+  for (const re of RISK_EQUIVALENTS) {
+    const tr = document.createElement('tr');
+    const invRate = Math.round(1 / re.mortalityPerEvent);
+    const pctRate = (re.mortalityPerEvent * 100).toPrecision(3);
+    const cite = CITATIONS[re.cite];
+    const sourceText = cite ? citeRef(re.cite) : re.cite;
+    tr.innerHTML =
+      `<td>${re.label.charAt(0).toUpperCase() + re.label.slice(1)}</td>` +
+      `<td>~1/${invRate.toLocaleString()} = ${pctRate}%</td>` +
+      `<td>${sourceText}</td>`;
+    reTbody.appendChild(tr);
+  }
+
+  // ── Full reference list ──────────────────────────────────────────────────
+  const refList = document.getElementById('reference-list');
+  for (const key of Object.keys(CITATIONS)) {
+    const li = document.createElement('li');
+    li.innerHTML = citeRef(key);
+    refList.appendChild(li);
+  }
+})();
+</script>
 
 </body>
 </html>

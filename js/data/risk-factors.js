@@ -7,166 +7,32 @@
  *
  * HRs represent population-level estimates. Individual variation is large.
  * Sources are large prospective cohort studies or meta-analyses.
+ *
+ * Citation metadata (URLs, DOIs, full refs) lives in citations.js.
+ * Each entry here stores only a citation key; use CITATIONS[key] for details.
  */
 const RISK_FACTORS = [
-  {
-    id: 'diabetes',
-    label: 'Type 2 diabetes',
-    hr: 1.93,
-    ci: [1.80, 2.08],
-    source: 'Seshasai SR et al. N Engl J Med. 2011;364(9):829-841.',
-    url: 'https://doi.org/10.1056/NEJMoa1008862',
-    notes: 'Versus no diabetes. Effect may be partially attenuated with well-controlled HbA1c.',
-  },
-  {
-    id: 'hypertension',
-    label: 'Hypertension (high blood pressure)',
-    hr: 1.20,
-    ci: [1.15, 1.25],
-    source: 'Prospective Studies Collaboration. Lancet. 2002;360(9349):1903-1913.',
-    url: 'https://doi.org/10.1016/S0140-6736(02)11911-8',
-    notes: 'Diagnosed hypertension vs normotensive. Effect attenuated in well-treated populations.',
-  },
-  {
-    id: 'smoking_current',
-    label: 'Current smoker',
-    hr: 1.83,
-    ci: [1.74, 1.93],
-    source: 'Jha P et al. N Engl J Med. 2013;368(4):341-350.',
-    url: 'https://doi.org/10.1056/NEJMsa1211128',
-    notes: 'Current smokers vs never-smokers, all-cause mortality.',
-  },
-  {
-    id: 'smoking_former',
-    label: 'Former smoker (quit)',
-    hr: 1.34,
-    ci: [1.27, 1.42],
-    source: 'Jha P et al. N Engl J Med. 2013;368(4):341-350.',
-    url: 'https://doi.org/10.1056/NEJMsa1211128',
-    notes: 'Former smokers who quit ≥10 years vs never-smokers.',
-  },
-  {
-    id: 'obesity_1',
-    label: 'Obesity class I (BMI 30–35)',
-    hr: 1.12,
-    ci: [1.06, 1.18],
-    source: 'Berrington de Gonzalez A et al. N Engl J Med. 2010;363(23):2211-2219.',
-    url: 'https://doi.org/10.1056/NEJMoa0900582',
-    notes: 'BMI 30–34.9 vs BMI 22.5–24.9, never-smokers.',
-  },
-  {
-    id: 'obesity_2',
-    label: 'Obesity class II (BMI 35–40)',
-    hr: 1.27,
-    ci: [1.17, 1.38],
-    source: 'Berrington de Gonzalez A et al. N Engl J Med. 2010;363(23):2211-2219.',
-    url: 'https://doi.org/10.1056/NEJMoa0900582',
-    notes: 'BMI 35–39.9 vs BMI 22.5–24.9, never-smokers.',
-  },
-  {
-    id: 'obesity_3',
-    label: 'Obesity class III (BMI ≥ 40)',
-    hr: 1.55,
-    ci: [1.38, 1.73],
-    source: 'Berrington de Gonzalez A et al. N Engl J Med. 2010;363(23):2211-2219.',
-    url: 'https://doi.org/10.1056/NEJMoa0900582',
-    notes: 'BMI ≥40 vs BMI 22.5–24.9, never-smokers.',
-  },
-  {
-    id: 'cad',
-    label: 'Coronary artery disease or prior heart attack',
-    hr: 2.45,
-    ci: [1.98, 3.02],
-    source: 'Sulo G et al. Eur J Prev Cardiol. 2020;27(18):1954-1963.',
-    url: 'https://doi.org/10.1177/2047487320927835',
-    notes: 'Post-MI all-cause mortality vs age-matched general population.',
-  },
-  {
-    id: 'copd_moderate',
-    label: 'COPD (moderate — GOLD stage II)',
-    hr: 1.62,
-    ci: [1.45, 1.81],
-    source: 'Mannino DM et al. Thorax. 2006;61(2):115-120.',
-    url: 'https://doi.org/10.1136/thx.2004.028449',
-    notes: 'GOLD stage II (FEV1 50–79% predicted) vs normal spirometry.',
-  },
-  {
-    id: 'copd_severe',
-    label: 'COPD (severe — GOLD stage III–IV)',
-    hr: 2.16,
-    ci: [1.79, 2.60],
-    source: 'Mannino DM et al. Thorax. 2006;61(2):115-120.',
-    url: 'https://doi.org/10.1136/thx.2004.028449',
-    notes: 'GOLD stage III–IV (FEV1 <50% predicted) vs normal spirometry.',
-  },
-  {
-    id: 'ckd_3a',
-    label: 'Chronic kidney disease stage 3A (eGFR 45–59)',
-    hr: 1.35,
-    ci: [1.25, 1.46],
-    source: 'Grams ME et al. JAMA. 2019;322(21):2104-2114.',
-    url: 'https://doi.org/10.1001/jama.2019.18581',
-    notes: 'eGFR 45–59 mL/min/1.73m², UACR <30 mg/g, vs eGFR 95.',
-  },
-  {
-    id: 'ckd_3b',
-    label: 'Chronic kidney disease stage 3B (eGFR 30–44)',
-    hr: 1.85,
-    ci: [1.68, 2.04],
-    source: 'Grams ME et al. JAMA. 2019;322(21):2104-2114.',
-    url: 'https://doi.org/10.1001/jama.2019.18581',
-    notes: 'eGFR 30–44 mL/min/1.73m², UACR <30 mg/g, vs eGFR 95.',
-  },
-  {
-    id: 'depression',
-    label: 'Clinical depression (diagnosed)',
-    hr: 1.52,
-    ci: [1.38, 1.67],
-    source: 'Walker ER et al. JAMA Psychiatry. 2015;72(4):334-341.',
-    url: 'https://doi.org/10.1001/jamapsychiatry.2014.2502',
-    notes: 'Diagnosed depressive disorder vs no depression, all-cause mortality.',
-  },
+  { id: 'diabetes',        label: 'Type 2 diabetes',            hr: 1.93, ci: [1.80, 2.08], cite: 'seshasai2011',  notes: 'Versus no diabetes.' },
+  { id: 'hypertension',    label: 'Hypertension',               hr: 1.20, ci: [1.15, 1.25], cite: 'psc2002',       notes: 'Diagnosed hypertension vs normotensive.' },
+  { id: 'smoking_current', label: 'Current smoker',             hr: 1.83, ci: [1.74, 1.93], cite: 'jha2013',       notes: 'Current vs never-smokers, all-cause.' },
+  { id: 'smoking_former',  label: 'Former smoker (quit)',        hr: 1.34, ci: [1.27, 1.42], cite: 'jha2013',       notes: 'Former (quit ≥10y) vs never-smokers.' },
+  { id: 'obesity_1',       label: 'Obesity class I (BMI 30–35)', hr: 1.12, ci: [1.06, 1.18], cite: 'berrington2010', notes: 'BMI 30–34.9 vs 22.5–24.9, never-smokers.' },
+  { id: 'obesity_2',       label: 'Obesity class II (BMI 35–40)',hr: 1.27, ci: [1.17, 1.38], cite: 'berrington2010', notes: 'BMI 35–39.9 vs 22.5–24.9, never-smokers.' },
+  { id: 'obesity_3',       label: 'Obesity class III (BMI ≥ 40)',hr: 1.55, ci: [1.38, 1.73], cite: 'berrington2010', notes: 'BMI ≥40 vs 22.5–24.9, never-smokers.' },
 ];
 
 // ---------------------------------------------------------------------------
 // Risk equivalents — mortality per single event, used to express Δq
 // ---------------------------------------------------------------------------
 const RISK_EQUIVALENTS = [
-  {
-    id: 'base_jump',
-    label: 'base jump',
-    labelPlural: 'base jumps',
-    mortalityPerEvent: 1 / 2317,   // 0.0432% per jump
-    source: 'Westman A et al. Scand J Trauma Resusc Emerg Med. 2008;16:3. ' +
-            'Analysis of 20,850 jumps from Kjerag Massif, Norway.',
-    url: 'https://doi.org/10.1186/1757-7241-16-3',
-  },
-  {
-    id: 'anesthesia',
-    label: 'general anesthesia',
-    labelPlural: 'general anesthesias',
-    mortalityPerEvent: 1 / 100000,  // ~1 per 100,000 for healthy patients in developed countries
-    source: 'Braz LG et al. Mortality in anesthesia: a systematic review. ' +
-            'Clinics. 2009;64(10):999-1006. PMC2763076. ' +
-            '~1/100,000 for healthy patients (ASA I-II) in developed countries.',
-    url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC2763076/',
-  },
-  {
-    id: 'skydive',
-    label: 'skydive',
-    labelPlural: 'skydives',
-    mortalityPerEvent: 10 / 3700000,  // USPA 2023: ~10 deaths / 3.7M jumps
-    source: 'United States Parachute Association (USPA) 2023 Fatality Summary. ' +
-            'uspa.org',
-    url: 'https://uspa.org/a-widespread-improvementthe-2023-fatality-summary',
-  },
+  { id: 'base_jump',  label: 'base jump',          labelPlural: 'base jumps',          mortalityPerEvent: 1 / 2317,     cite: 'westman2008' },
+  { id: 'anesthesia', label: 'general anesthesia',  labelPlural: 'general anesthesias', mortalityPerEvent: 1 / 100000,   cite: 'braz2009' },
+  { id: 'skydive',    label: 'skydive',             labelPlural: 'skydives',            mortalityPerEvent: 10 / 3700000, cite: 'uspa2023' },
 ];
 
 /**
  * Compute the combined HR from a list of selected risk factor IDs.
  * Returns 1.0 if no factors selected.
- * @param {string[]} selectedIds
- * @returns {number} combined HR (product of individual HRs)
  */
 function computeRiskHR(selectedIds) {
   if (!selectedIds || selectedIds.length === 0) return 1.0;
@@ -178,8 +44,6 @@ function computeRiskHR(selectedIds) {
 
 /**
  * Get breakdown of individual factor contributions.
- * @param {string[]} selectedIds
- * @returns {Array<{label, hr, source}>}
  */
 function getRiskBreakdown(selectedIds) {
   return (selectedIds || []).map(id => RISK_FACTORS.find(f => f.id === id)).filter(Boolean);

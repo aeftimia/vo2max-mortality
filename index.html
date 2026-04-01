@@ -53,11 +53,7 @@
         <input type="number" id="vo2max" min="5" max="100" step="0.1" placeholder="e.g. 42.5">
         <details>
           <summary>How to estimate your VO₂ max</summary>
-          <ul style="font-size:0.875rem; color:#64748b; margin: 0.5rem 0 0 1.2rem; line-height:1.7;">
-            <li><strong>Smartwatch estimate:</strong> Many Garmin, Apple Watch, and Polar devices estimate VO₂ max from heart rate during runs. These are typically within <a href="https://doi.org/10.1007/s00421-023-05176-4" target="_blank" rel="noopener">±5 mL/kg/min</a>.</li>
-            <li><strong><a href="https://doi.org/10.1080/00140137008931262" target="_blank" rel="noopener">Cooper 12-minute run test</a>:</strong> VO₂ max ≈ (distance in meters − 504.9) / 44.73. Run as far as you can in 12 minutes on a flat surface.</li>
-            <li><strong><a href="https://doi.org/10.1249/00005768-198701000-00014" target="_blank" rel="noopener">Rockport 1-mile walk test</a>:</strong> Walk 1 mile as fast as possible; use published formula with finish time, heart rate, age, sex, and weight.</li>
-            <li><strong>Clinical exercise test (gold standard):</strong> VO₂ max measured directly via <a href="https://doi.org/10.1161/CIR.0000000000000973" target="_blank" rel="noopener">cardiopulmonary exercise testing (CPET)</a> in a sports medicine lab or cardiologist's office.</li>
+          <ul id="vo2-methods-list" style="font-size:0.875rem; color:#64748b; margin: 0.5rem 0 0 1.2rem; line-height:1.7;">
           </ul>
         </details>
       </div>
@@ -70,33 +66,8 @@
         They do <em>not</em> affect the fitness category definitions or Mandsager HRs.
         Applied multiplicatively (independence assumed; see <a href="methodology.html">methodology</a>).
       </p>
-      <div class="checkbox-group">
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-diabetes" value="diabetes">
-          Type 2 diabetes <a href="https://doi.org/10.1056/NEJMoa1008862" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-hypertension" value="hypertension">
-          Hypertension <a href="https://doi.org/10.1016/S0140-6736(02)11911-8" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-smoking_current" value="smoking_current">
-          Current smoker <a href="https://doi.org/10.1056/NEJMsa1211128" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-smoking_former" value="smoking_former">
-          Former smoker <a href="https://doi.org/10.1056/NEJMsa1211128" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-obesity_1" value="obesity_1">
-          Obesity class I (BMI 30–35) <a href="https://doi.org/10.1056/NEJMoa0900582" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-obesity_2" value="obesity_2">
-          Obesity class II (BMI 35–40) <a href="https://doi.org/10.1056/NEJMoa0900582" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-obesity_3" value="obesity_3">
-          Obesity class III (BMI ≥ 40) <a href="https://doi.org/10.1056/NEJMoa0900582" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-cad" value="cad">
-          CAD or prior heart attack <a href="https://doi.org/10.1177/2047487320927835" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-copd_moderate" value="copd_moderate">
-          COPD (moderate — GOLD II) <a href="https://doi.org/10.1136/thx.2004.028449" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-copd_severe" value="copd_severe">
-          COPD (severe — GOLD III–IV) <a href="https://doi.org/10.1136/thx.2004.028449" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-ckd_3a" value="ckd_3a">
-          CKD stage 3A (eGFR 45–59) <a href="https://doi.org/10.1001/jama.2019.18581" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-ckd_3b" value="ckd_3b">
-          CKD stage 3B (eGFR 30–44) <a href="https://doi.org/10.1001/jama.2019.18581" target="_blank" rel="noopener" class="small muted">[study]</a></label>
-        <label><input type="checkbox" class="risk-factor-cb" id="cb-depression" value="depression">
-          Clinical depression <a href="https://doi.org/10.1001/jamapsychiatry.2014.2502" target="_blank" rel="noopener" class="small muted">[study]</a></label>
+      <div class="checkbox-group" id="risk-factor-checkboxes">
+        <!-- Generated from RISK_FACTORS data by form.js -->
       </div>
     </details>
 
@@ -156,17 +127,25 @@
     <div class="card">
       <h2>Life expectancy impact</h2>
       <p id="le-summary"></p>
-      <p class="small muted mt-1">Computed by integrating the
-         <a href="https://www.ssa.gov/oact/STATS/table4c6.html" target="_blank" rel="noopener">SSA 2021 Period Life Table</a>
+      <p class="small muted mt-1" id="le-source-note">Computed by integrating the
+         SSA 2021 Period Life Table
          from your current age to 119, with mortality scaled by the fitness-level HR ratio.
          This is a simplified model; actual life expectancy depends on many factors.</p>
+      <script>
+        // Inject citation link from centralized data
+        document.addEventListener('DOMContentLoaded', () => {
+          const el = document.getElementById('le-source-note');
+          if (el) el.innerHTML = el.innerHTML.replace('SSA 2021 Period Life Table',
+            citeLink('ssaLifeTable', 'SSA 2021 Period Life Table'));
+        });
+      </script>
     </div>
 
     <!-- Caveats -->
     <div class="card">
       <h2>Important caveats</h2>
       <ul class="caveat-list">
-        <li><strong>Clinical cohort bias.</strong>
+        <li id="caveat-cohort"><strong>Clinical cohort bias.</strong>
           <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/" target="_blank" rel="noopener">Mandsager et al.</a>
           studied patients referred for exercise treadmill testing — a sicker-than-average
           population. We use only the <em>ratios</em> (hazard ratios) between fitness levels,
@@ -208,6 +187,7 @@
 </footer>
 
 <!-- Data files -->
+<script src="js/data/citations.js"></script>
 <script src="js/data/ssa-life-tables.js"></script>
 <script src="js/data/mandsager.js"></script>
 <script src="js/data/friend-registry.js"></script>

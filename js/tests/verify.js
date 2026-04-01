@@ -39,7 +39,7 @@ const Verify = {
     // ── Test 2: Sanity check q ordering ───────────────────────────────────
     console.group('2. q ordering: q_Low > q_pop > q_Elite (40yo male)');
     const r40 = computeMortality({ age: 40, sex: 'male', vo2max: 20, riskFactors: [] });
-    this.assert('q_Low > q_pop', r40.qLow > r40.qPop);
+    this.assert('q_Low > q_pop', r40.qByCategory.Low > r40.qPop);
     this.assert('q_Elite < q_pop', r40.qByCategory.Elite < r40.qPop);
     this.assert('q_Elite < q_High < q_AboveAvg < q_BelowAvg < q_Low',
       r40.qByCategory.Elite < r40.qByCategory.High &&
