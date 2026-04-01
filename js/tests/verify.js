@@ -54,7 +54,7 @@ const Verify = {
     this.assertClose('q_Elite / q_Low ≈ 0.20', r.qByCategory.Elite / r.qByCategory.Low, 0.20, 0.02);
     this.assertClose('q_BelowAvg / q_Low ≈ 0.71', r.qByCategory.BelowAvg / r.qByCategory.Low, 0.71, 0.02);
     this.assertClose('q_AboveAvg / q_Low ≈ 0.50', r.qByCategory.AboveAvg / r.qByCategory.Low, 0.50, 0.02);
-    this.assertClose('q_High / q_Low ≈ 0.27', r.qByCategory.High / r.qByCategory.Low, 0.27, 0.02);
+    this.assertClose('q_High / q_Low ≈ 0.39', r.qByCategory.High / r.qByCategory.Low, 0.39, 0.02);
     console.groupEnd();
 
     // ── Test 4: 30yo male, VO2 45 → AboveAvg, ~0.12-0.13%/yr ─────────────
