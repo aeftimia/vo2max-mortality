@@ -65,7 +65,7 @@ function computeMortality(inputs) {
 
   // ── Step 2: Back-calculate per-category baseline mortality ────────────────
   // W = Σ(f_i × HR_i)  using Mandsager cohort fractions and HRs
-  const W = MANDSAGER_W;  // pre-computed constant ≈ 0.601
+  const W = MANDSAGER_W;  // pre-computed constant ≈ 0.630
 
   const qLow = qPop / W;
 
@@ -151,9 +151,6 @@ function computeMortality(inputs) {
   // then express delta vs current category.
   const leByCategory = {};
   for (const cat of CATEGORIES) {
-    // Mortality multiplier relative to population average:
-    // q_cat / q_pop * userRiskHR (already baked into qUserByCategory)
-    // multiplier for lifeExpectancy() = q_user_cat / q_pop
     const mult = qUserByCategory[cat] / qPop;
     leByCategory[cat] = lifeExpectancy(age, sex, mult);
   }
@@ -161,6 +158,27 @@ function computeMortality(inputs) {
   const leDeltaByCategory = {};
   for (const cat of CATEGORIES) {
     leDeltaByCategory[cat] = leByCategory[cat] - leByCategory[currentCategory];
+  }
+
+  // LE plausible range (CI propagation)
+  const leRangeByCategory = {};
+  for (const cat of CATEGORIES) {
+    const multLo = qRangeByCategory[cat].lo / qPop;
+    const multHi = qRangeByCategory[cat].hi / qPop;
+    leRangeByCategory[cat] = {
+      lo: lifeExpectancy(age, sex, multHi),  // higher mortality → lower LE
+      hi: lifeExpectancy(age, sex, multLo),  // lower mortality → higher LE
+    };
+  }
+  // LE delta range vs current category
+  const leDeltaRangeByCategory = {};
+  const curLeLo = leRangeByCategory[currentCategory].lo;
+  const curLeHi = leRangeByCategory[currentCategory].hi;
+  for (const cat of CATEGORIES) {
+    leDeltaRangeByCategory[cat] = {
+      lo: leRangeByCategory[cat].lo - curLeHi,
+      hi: leRangeByCategory[cat].hi - curLeLo,
+    };
   }
 
   // ── Step 8: FRIEND peer percentile (context only) ────────────────────────
@@ -213,5 +231,7 @@ function computeMortality(inputs) {
     leByCategory,
     lePopulation,
     leDeltaByCategory,
+    leRangeByCategory,
+    leDeltaRangeByCategory,
   };
 }

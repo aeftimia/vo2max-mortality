@@ -115,20 +115,19 @@ categories transfer to the general population; this is an assumption, not a prov
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
-<h2>Baseline Mortality: SSA Life Table</h2>
+<h2>Baseline Mortality: US Life Tables 2021</h2>
 
-<p><strong>Source:</strong> Social Security Administration. Period Life Table, 2021.
-<a href="https://www.ssa.gov/oact/STATS/table4c6.html" target="_blank" rel="noopener">
-ssa.gov/oact/STATS/table4c6.html</a>. Public domain.</p>
-
-<p>The q(x) values — probability of dying within one year at exact age x — come from the
-CDC National Vital Statistics Reports, Vol. 72, No. 12 (November 2023), specifically
-Table 2 (males) and Table 3 (females) of "United States Life Tables, 2021."
+<p><strong>Source:</strong> The q(x) values — probability of dying within one year at exact age x —
+come from the CDC National Vital Statistics Reports, Vol. 72, No. 12 (November 2023),
+specifically Table 2 (males) and Table 3 (females) of "United States Life Tables, 2021."
 All integer ages 0–99 are transcribed directly from those tables.
 Ages 100–119 use log-linear extrapolation anchored at age 99, matching standard actuarial
-practice for open-ended intervals. Source files:
-<a href="https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Publications/NVSR/72-12/" target="_blank" rel="noopener">ftp.cdc.gov/pub/Health_Statistics/NCHS/Publications/NVSR/72-12/</a>
-(public domain — US federal government work).</p>
+practice for open-ended intervals.</p>
+
+<p>These values are essentially equivalent to the
+<a href="https://www.ssa.gov/oact/STATS/table4c6.html" target="_blank" rel="noopener">SSA Period Life Table, 2021</a>
+(typically &lt;2% difference at any age), as both derive from the same underlying US mortality data.
+Public domain — US federal government work.</p>
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
@@ -177,11 +176,11 @@ $$\Delta q(\text{target}) = q_{\text{user}}[\text{target}] - q_{\text{user}}[\te
 <div class="math-block">
 $$N_{\text{activity}} = \frac{\Delta q}{p_{\text{activity}}}$$
 
-$$N_{\text{base jumps}} = \frac{\Delta q}{1/2317} = \Delta q \times 2317$$
+$$N_{\text{base jumps}} = \frac{\Delta q}{1/2317} = \Delta q \times 2{,}317$$
+
+$$N_{\text{anesthesias}} = \frac{\Delta q}{1/100{,}000} = \Delta q \times 100{,}000$$
 
 $$N_{\text{skydives}} = \frac{\Delta q}{10/3{,}700{,}000} = \Delta q \times 370{,}000$$
-
-$$N_{\text{CT scans}} = \frac{\Delta q}{0.0005} = \Delta q \times 2000$$
 </div>
 <p>Interpretation: "Moving from Level A to Level B saves/costs the equivalent of
 N [activity] per year in additional annual mortality risk." This is a statistical
@@ -319,12 +318,12 @@ All are all-cause mortality HRs from large prospective studies or meta-analyses.
           <a href="https://www.uspa.org" target="_blank" rel="noopener">uspa.org</a></td>
     </tr>
     <tr>
-      <td>Chest CT scan</td>
-      <td>~0.05% cancer mortality</td>
-      <td>National Academies of Sciences. BEIR VII: Health Risks from Exposure to Low Levels
-          of Ionizing Radiation. 2006. Chest CT ≈ 7 mSv; linear no-threshold (LNT) model.
-          Cancer mortality ≈ 5% of cancer incidence from radiation; ~1 excess cancer death
-          per 2,000 scans at age 40.</td>
+      <td>General anesthesia</td>
+      <td>~1/100,000 = 0.001%</td>
+      <td>Braz LG et al. Mortality in anesthesia: a systematic review.
+          <em>Clinics.</em> 2009;64(10):999-1006.
+          <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2763076/" target="_blank" rel="noopener">PMC2763076</a>.
+          Rate for healthy patients (ASA I–II) in developed countries.</td>
     </tr>
   </tbody>
 </table>
@@ -341,9 +340,12 @@ an equivalent annual mortality burden.</p>
 
 <ol>
   <li><strong>Clinical cohort bias.</strong> Mandsager's cohort is referred patients, not
-    a general population sample. The absolute mortality rates in low-fitness patients may
-    be higher than in the general population, potentially inflating the apparent benefit
-    of fitness. Using only the HRs (ratios) mitigates but does not eliminate this concern.</li>
+    a general population sample. We use only the <em>relative</em> hazard ratios, anchored to
+    general-population life tables. Whether this over- or under-estimates the true fitness
+    benefit depends on the underlying model: under proportional hazards (multiplicative risk),
+    the HRs transfer directly; under an additive excess-risk model, the clinical cohort's
+    higher baseline mortality compresses HRs toward 1, meaning we would <em>underestimate</em>
+    fitness benefits in healthier populations. The true relationship is unknown.</li>
 
   <li><strong>Causality.</strong> Observational HRs do not prove causation.
     Low fitness may partly reflect underlying disease (reverse causation) rather than
@@ -425,9 +427,9 @@ an equivalent annual mortality burden.</p>
 
   <li>United States Parachute Association. 2023 Fatality Summary. uspa.org. Accessed 2025.</li>
 
-  <li>National Academies of Sciences, Engineering, and Medicine. Health Risks from Exposure to
-    Low Levels of Ionizing Radiation: BEIR VII Phase 2. Washington, DC: The National Academies
-    Press; 2006. doi:10.17226/11340.</li>
+  <li>Braz LG, Módolo NS, do Nascimento P Jr, et al. Mortality in anesthesia: a systematic
+    review. <em>Clinics.</em> 2009;64(10):999-1006.
+    <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2763076/" target="_blank" rel="noopener">PMC2763076</a>.</li>
 </ol>
 
 </div><!-- /methodology-body -->

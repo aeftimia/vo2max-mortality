@@ -26,11 +26,11 @@ const Results = {
     document.getElementById('hero-fitness').innerHTML =
       `Your VO₂ max of <strong>${vo2max.toFixed(1)} mL/kg/min</strong> places you in the ` +
       `<strong class="cat-${currentCategory}">${categoryLabel}</strong> fitness category ` +
-      `for a ${age}-year-old ${sexLabel} by ` +
-      `<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/" target="_blank" rel="noopener">Mandsager 2018</a> criteria. ` +
-      `For context, this is ${pctText} of healthy US adults your age per the ` +
-      `<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4919021/" target="_blank" rel="noopener">FRIEND Registry</a> ` +
-      `(a separate normative dataset with different thresholds).`;
+      `for a ${age}-year-old ${sexLabel} ` +
+      `(<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/" target="_blank" rel="noopener">Mandsager 2018</a>).` +
+      `<br>Among healthy US adults your age, this is ${pctText} ` +
+      `(<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4919021/" target="_blank" rel="noopener">FRIEND Registry</a> — ` +
+      `separate norms, different thresholds from the Mandsager categories above).`;
 
     const riskNote = userRiskHR > 1
       ? ` With your health conditions (combined HR ${userRiskHR.toFixed(2)}×), your personal estimate is higher.`
@@ -45,7 +45,7 @@ const Results = {
   // ── Mortality table ─────────────────────────────────────────────────────
   renderTable(result) {
     const { currentCategory, qUserByCategory, qRangeByCategory,
-            deltaQ, categoryBounds, age, sex } = result;
+            categoryBounds } = result;
     const cats = ['Elite', 'High', 'AboveAvg', 'BelowAvg', 'Low'];
 
     const tbody = document.getElementById('mortality-tbody');
@@ -56,7 +56,6 @@ const Results = {
       const q    = qUserByCategory[cat];
       const lo   = qRangeByCategory[cat].lo;
       const hi   = qRangeByCategory[cat].hi;
-      const dq   = deltaQ[cat];
       const bounds = categoryBounds;
 
       // VO2 max range label
@@ -68,19 +67,14 @@ const Results = {
         vo2Range = `${bounds[cat].toFixed(1)} – ${bounds[keys[cat]].toFixed(1)}`;
       }
 
-      const deltaCell = isCurrent
-        ? '<em>your current level</em>'
-        : (dq < 0
-            ? `<span class="better">${fmtPercent(Math.abs(dq))} less/yr</span>`
-            : `<span class="worse">+${fmtPercent(dq)} more/yr</span>`);
+      const rangeTooltip = `Plausible range: ${fmtPercent(lo)} – ${fmtPercent(hi)}/yr (HR 95% CIs)`;
 
       const tr = document.createElement('tr');
       if (isCurrent) tr.className = 'current-row';
       tr.innerHTML = `
         <td><span class="cat-dot cat-${cat}"></span>${CAT_LABEL[cat]}${isCurrent ? ' ★' : ''}</td>
         <td>${vo2Range}</td>
-        <td>${fmtPercent(q)}/yr</td>
-        <td>${deltaCell}</td>
+        <td title="${rangeTooltip}">${fmtPercent(q)}/yr <span class="equiv-tip">ⓘ</span></td>
       `;
       tbody.appendChild(tr);
     }
@@ -116,13 +110,27 @@ const Results = {
       const equivLines = RISK_EQUIVALENTS.map(re => {
         const n    = Math.abs(equivs[re.id]);
         const rang = result.riskEquivRangeByCategory[cat][re.id];
-        // Range bounds — take abs and reorder so lo ≤ hi
         const rLo  = Math.abs(rang.lo);
         const rHi  = Math.abs(rang.hi);
         const [ra, rb] = rLo <= rHi ? [rLo, rHi] : [rHi, rLo];
         const tipText = `Plausible range: ${fmtEquiv(ra)} – ${fmtEquiv(rb)} ${n === 1 ? re.label : re.labelPlural}/yr (based on HR 95% CIs)`;
         return `<span class="equiv-item" title="${tipText}"><strong class="equiv-val">${fmtEquiv(n)}</strong> ${n === 1 ? re.label : re.labelPlural}<span class="equiv-tip">ⓘ</span></span>`;
       }).join(' &nbsp;·&nbsp; ');
+
+      // Δq plausible range tooltip
+      const dqRange = result.deltaQRangeByCategory[cat];
+      const dqLo = Math.abs(dqRange.lo);
+      const dqHi = Math.abs(dqRange.hi);
+      const [dqA, dqB] = dqLo <= dqHi ? [dqLo, dqHi] : [dqHi, dqLo];
+      const dqTip = `Plausible range: ${fmtPercent(dqA)} – ${fmtPercent(dqB)}/yr (HR 95% CIs)`;
+
+      // LE plausible range tooltip
+      const leD = result.leDeltaByCategory[cat];
+      const leRange = result.leDeltaRangeByCategory[cat];
+      const leLo = leRange.lo;
+      const leHi = leRange.hi;
+      const [leA, leB] = Math.abs(leLo) <= Math.abs(leHi) ? [leLo, leHi] : [leHi, leLo];
+      const leTip = `Plausible range: ${fmtYears(leA)} to ${fmtYears(leB)} (HR 95% CIs)`;
 
       card.innerHTML = `
         <div class="equiv-header">
@@ -133,11 +141,11 @@ const Results = {
           Moving from <strong>${CAT_LABEL[currentCategory]}</strong> to
           <strong>${CAT_LABEL[cat]}</strong> would
           <strong>${verb}</strong> your annual mortality by
-          <strong>${fmtPercent(Math.abs(dq))}/yr</strong> —
+          <span title="${dqTip}" style="cursor:help"><strong>${fmtPercent(Math.abs(dq))}/yr</strong> <span class="equiv-tip">ⓘ</span></span> —
           equivalent to ${avoid}:
         </p>
         <div class="equiv-items">${equivLines}</div>
-        <p class="equiv-le">Life expectancy impact: <strong>${fmtYears(result.leDeltaByCategory[cat])}</strong></p>
+        <p class="equiv-le" title="${leTip}" style="cursor:help">Life expectancy impact: <strong>${fmtYears(leD)}</strong> <span class="equiv-tip">ⓘ</span></p>
       `;
       container.appendChild(card);
     }

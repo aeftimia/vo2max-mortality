@@ -33,7 +33,7 @@ const Verify = {
 
     // ── Test 1: Population-weighted HR ────────────────────────────────────
     console.group('1. Population-weighted HR (W)');
-    this.assertClose('W ≈ 0.601', MANDSAGER_W, 0.601, 0.05);
+    this.assertClose('W ≈ 0.630', MANDSAGER_W, 0.630, 0.02);
     console.groupEnd();
 
     // ── Test 2: Sanity check q ordering ───────────────────────────────────
