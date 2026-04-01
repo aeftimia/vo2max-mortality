@@ -2,7 +2,7 @@
 
 An open-source static website that estimates how cardiorespiratory fitness (VO₂ max) affects all-cause mortality risk, and expresses the difference in intuitive units like base jumps, skydives, and CT scans per year.
 
-**[Live demo →](https://yourusername.github.io/vo2max-mortality)**
+**[Live demo →](https://aeftimia.github.io/vo2max-mortality)**
 
 ## What it does
 
