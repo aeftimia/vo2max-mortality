@@ -133,7 +133,6 @@
               <th>Category</th>
               <th>VO₂ max range*</th>
               <th>Annual mortality</th>
-              <th>Plausible range</th>
               <th>vs your current</th>
             </tr>
           </thead>
@@ -142,7 +141,7 @@
       </div>
       <p class="small muted mt-1">
         * VO₂ max boundaries from Mandsager 2018 Table 1 for your age/sex group (mL/kg/min).
-        Plausible range reflects 95% CIs on Mandsager hazard ratios; not a formal 95% CI.
+        Hover over any risk equivalent number below to see its plausible range.
       </p>
     </div>
 
@@ -158,7 +157,8 @@
     <div class="card">
       <h2>Life expectancy impact</h2>
       <p id="le-summary"></p>
-      <p class="small muted mt-1">Computed by integrating the SSA 2021 life table
+      <p class="small muted mt-1">Computed by integrating the
+         <a href="https://www.cdc.gov/nchs/nvss/life-tables.htm" target="_blank" rel="noopener">CDC NVSS 2021 Period Life Table</a>
          from your current age to 119, with mortality scaled by the fitness-level HR ratio.
          This is a simplified model; actual life expectancy depends on many factors.</p>
     </div>

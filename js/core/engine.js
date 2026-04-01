@@ -104,26 +104,46 @@ function computeMortality(inputs) {
   }
 
   // ── Step 6: Plausible ranges (CI propagation) ─────────────────────────────
-  // Use HR CI bounds to bracket q estimates.
-  // Conservative: each HR simultaneously at its bound (not formally a 95% CI).
+  // Conservative bounds using HR 95% CIs. Not a formal joint CI.
+  const W_lo = CATEGORIES.reduce((s, c) =>
+    s + MANDSAGER_FRACTIONS[c] * MANDSAGER_HR[c].ci[1], 0);
+  const W_hi = CATEGORIES.reduce((s, c) =>
+    s + MANDSAGER_FRACTIONS[c] * MANDSAGER_HR[c].ci[0], 0);
+  const qLow_lo = qPop / W_lo;
+  const qLow_hi = qPop / W_hi;
+
   const qRangeByCategory = {};
   for (const cat of CATEGORIES) {
     const hrLo = MANDSAGER_HR[cat].ci[0];
     const hrHi = MANDSAGER_HR[cat].ci[1];
-
-    // Weighted HR using extreme bounds (all HRs at their lower or upper CI)
-    const W_lo = CATEGORIES.reduce((s, c) =>
-      s + MANDSAGER_FRACTIONS[c] * MANDSAGER_HR[c].ci[1], 0);
-    const W_hi = CATEGORIES.reduce((s, c) =>
-      s + MANDSAGER_FRACTIONS[c] * MANDSAGER_HR[c].ci[0], 0);
-
-    const qLow_lo = qPop / W_lo;
-    const qLow_hi = qPop / W_hi;
-
     qRangeByCategory[cat] = {
       lo: qLow_lo * hrLo * userRiskHR,
       hi: qLow_hi * hrHi * userRiskHR,
     };
+  }
+
+  // Delta-q plausible range vs current category
+  const deltaQRangeByCategory = {};
+  const curLo = qRangeByCategory[currentCategory].lo;
+  const curHi = qRangeByCategory[currentCategory].hi;
+  for (const cat of CATEGORIES) {
+    deltaQRangeByCategory[cat] = {
+      lo: qRangeByCategory[cat].lo - curHi,
+      hi: qRangeByCategory[cat].hi - curLo,
+    };
+  }
+
+  // Risk equivalent ranges (N events at lo/hi of delta-q range)
+  const riskEquivRangeByCategory = {};
+  for (const cat of CATEGORIES) {
+    const equivs = {};
+    for (const re of RISK_EQUIVALENTS) {
+      equivs[re.id] = {
+        lo: deltaQRangeByCategory[cat].lo / re.mortalityPerEvent,
+        hi: deltaQRangeByCategory[cat].hi / re.mortalityPerEvent,
+      };
+    }
+    riskEquivRangeByCategory[cat] = equivs;
   }
 
   // ── Step 7: Life expectancy impact ───────────────────────────────────────
@@ -183,9 +203,11 @@ function computeMortality(inputs) {
 
     // Risk equivalents (N events worth of annual excess mortality)
     riskEquivByCategory,
+    riskEquivRangeByCategory,
 
     // Plausible range (CI-based)
     qRangeByCategory,
+    deltaQRangeByCategory,
 
     // Life expectancy
     leByCategory,

@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Methodology — VO₂ Max Mortality Calculator</title>
   <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+          onload="renderMathInElement(document.body, {delimiters:[
+            {left:'$$',right:'$$',display:true},
+            {left:'\\(',right:'\\)',display:false}
+          ]})"></script>
+  <style>
+    .math-block { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6;
+                  border-radius: 4px; padding: 1rem 1.25rem; overflow-x: auto;
+                  margin: 0.75rem 0 1rem; }
+    .math-block .katex-display { margin: 0; }
+    .math-block .katex-display + .katex-display { margin-top: 0.75rem; }
+  </style>
 </head>
 <body>
 
@@ -33,7 +47,7 @@
 <p>This calculator estimates how a person's annual all-cause mortality probability
 changes across cardiorespiratory fitness (VO₂ max) levels. The approach has three steps:</p>
 <ol>
-  <li><strong>Anchor to population life tables.</strong> The SSA 2021 Period Life Table gives the
+  <li><strong>Anchor to population life tables.</strong> The CDC NVSS 2021 US Life Tables give the
     average annual probability of death q(age, sex) for the US population.</li>
   <li><strong>Back-calculate fitness-stratified mortality.</strong> Using hazard ratios from
     Mandsager et al. (2018), we derive the mortality rate for each of five fitness categories
@@ -107,10 +121,14 @@ categories transfer to the general population; this is an assumption, not a prov
 <a href="https://www.ssa.gov/oact/STATS/table4c6.html" target="_blank" rel="noopener">
 ssa.gov/oact/STATS/table4c6.html</a>. Public domain.</p>
 
-<p>The SSA Period Life Table gives q(x) — the probability of dying within one year for a
-person of exact age x — for both sexes. Values are taken from the 2021 table at 5-year
-anchor points and interpolated logarithmically for intermediate integer ages (standard
-actuarial practice). The interpolation error is negligible relative to other model uncertainties.</p>
+<p>The q(x) values — probability of dying within one year at exact age x — come from the
+CDC National Vital Statistics Reports, Vol. 72, No. 12 (November 2023), specifically
+Table 2 (males) and Table 3 (females) of "United States Life Tables, 2021."
+All integer ages 0–99 are transcribed directly from those tables.
+Ages 100–119 use log-linear extrapolation anchored at age 99, matching standard actuarial
+practice for open-ended intervals. Source files:
+<a href="https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Publications/NVSR/72-12/" target="_blank" rel="noopener">ftp.cdc.gov/pub/Health_Statistics/NCHS/Publications/NVSR/72-12/</a>
+(public domain — US federal government work).</p>
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
@@ -122,46 +140,49 @@ for a person of this age and sex in the US general population.</p>
 
 <h3>Step 2 — Back-calculation of category-specific mortality</h3>
 <p>Under a proportional hazards model, mortality in each fitness category is:</p>
-<div class="math-block">q_i = HR_i × q_Low     (i = Low, BelowAvg, AboveAvg, High, Elite)</div>
-<p>The population-weighted average must equal q_pop:</p>
-<div class="math-block">q_pop = Σ_i [ f_i × q_i ]
-      = Σ_i [ f_i × HR_i × q_Low ]
-      = q_Low × Σ_i [ f_i × HR_i ]
-      = q_Low × W
+<div class="math-block">
+$$q_i = \mathrm{HR}_i \times q_{\text{Low}}, \qquad i \in \{\text{Low, BelowAvg, AboveAvg, High, Elite}\}$$
+</div>
+<p>The population-weighted average must equal \(q_{\text{pop}}\):</p>
+<div class="math-block">
+$$q_{\text{pop}} = \sum_i f_i \cdot q_i = \sum_i f_i \cdot \mathrm{HR}_i \cdot q_{\text{Low}} = q_{\text{Low}} \cdot W$$
 
-where W = Σ_i [ f_i × HR_i ]
-        = 0.2392 × 1.00   (Low)
-        + 0.2227 × 0.71   (Below Average)
-        + 0.2614 × 0.50   (Above Average)
-        + 0.2474 × 0.27   (High)
-        + 0.0293 × 0.20   (Elite)
-        ≈ 0.601
+$$W = \sum_i f_i \cdot \mathrm{HR}_i = \underbrace{0.2392 \times 1.00}_{\text{Low}} + \underbrace{0.2227 \times 0.71}_{\text{BelowAvg}} + \underbrace{0.2614 \times 0.50}_{\text{AboveAvg}} + \underbrace{0.2474 \times 0.39}_{\text{High}} + \underbrace{0.0293 \times 0.20}_{\text{Elite}} \approx 0.630$$
 
-Therefore:  q_Low = q_pop / W
-            q_i   = q_Low × HR_i   for each category i</div>
+$$\therefore \quad q_{\text{Low}} = \frac{q_{\text{pop}}}{W}, \qquad q_i = q_{\text{Low}} \cdot \mathrm{HR}_i$$
+</div>
 <p>The fractions f_i are derived from sample sizes reported in Mandsager Table 1:
 Low (29,181), Below Average (27,172), Above Average (31,897), High (30,187), Elite (3,570),
 total n = 122,007.</p>
 
 <h3>Step 3 — User risk factor adjustment</h3>
 <p>The user's personal mortality at each fitness level is:</p>
-<div class="math-block">HR_user = Π_k HR_k         (product of selected comorbidity HRs)
-q_user_i = q_i × HR_user   (for each fitness category i)</div>
+<div class="math-block">
+$$\mathrm{HR}_{\text{user}} = \prod_k \mathrm{HR}_k \qquad \text{(product of selected comorbidity HRs)}$$
+
+$$q_{\text{user},i} = q_i \times \mathrm{HR}_{\text{user}} \qquad \text{(for each fitness category } i \text{)}$$
+</div>
 <p><strong>Independence assumption:</strong> This treats risk factors as multiplying independently.
 Real comorbidities often interact (e.g., diabetes + CAD is worse than the product predicts).
 This is a known limitation; see caveats below.</p>
 
 <h3>Step 4 — Excess mortality</h3>
-<div class="math-block">Δq(target) = q_user[target] − q_user[current_category]
-
-Negative Δq = better fitness (reduced mortality)
-Positive Δq = worse fitness (increased mortality)</div>
+<div class="math-block">
+$$\Delta q(\text{target}) = q_{\text{user}}[\text{target}] - q_{\text{user}}[\text{current}]$$
+</div>
+<p>Negative \(\Delta q\) indicates better fitness (reduced mortality); positive \(\Delta q\) indicates worse fitness.</p>
 
 <h3 id="equivalents">Step 5 — Risk equivalents</h3>
 <p>Annual excess mortality Δq is expressed as N equivalent events:</p>
-<div class="math-block">N_base_jumps = Δq / (1/2317)   = Δq × 2317
-N_skydives   = Δq / (10/3700000) = Δq × 370000
-N_ct_scans   = Δq / 0.0005      = Δq × 2000</div>
+<div class="math-block">
+$$N_{\text{activity}} = \frac{\Delta q}{p_{\text{activity}}}$$
+
+$$N_{\text{base jumps}} = \frac{\Delta q}{1/2317} = \Delta q \times 2317$$
+
+$$N_{\text{skydives}} = \frac{\Delta q}{10/3{,}700{,}000} = \Delta q \times 370{,}000$$
+
+$$N_{\text{CT scans}} = \frac{\Delta q}{0.0005} = \Delta q \times 2000$$
+</div>
 <p>Interpretation: "Moving from Level A to Level B saves/costs the equivalent of
 N [activity] per year in additional annual mortality risk." This is a statistical
 comparison — it does not mean literally performing those activities is equivalent
@@ -169,23 +190,57 @@ in any other sense.</p>
 
 <h3>Step 6 — Plausible range (CI propagation)</h3>
 <p>We propagate the 95% CIs from the Mandsager HR table conservatively:</p>
-<div class="math-block">W_lo = Σ_i [ f_i × HR_i_CI_upper ]  (→ q_Low lower bound)
-W_hi = Σ_i [ f_i × HR_i_CI_lower ]  (→ q_Low upper bound)
+<div class="math-block">
+$$W_{\text{lo}} = \sum_i f_i \cdot \mathrm{HR}_{i,\text{CI upper}} \implies q_{\text{Low,lo}} = \frac{q_{\text{pop}}}{W_{\text{lo}}}$$
 
-q_i_lo = (q_pop / W_hi) × HR_i_CI_lower
-q_i_hi = (q_pop / W_lo) × HR_i_CI_upper</div>
+$$W_{\text{hi}} = \sum_i f_i \cdot \mathrm{HR}_{i,\text{CI lower}} \implies q_{\text{Low,hi}} = \frac{q_{\text{pop}}}{W_{\text{hi}}}$$
+
+$$q_{i,\text{lo}} = q_{\text{Low,lo}} \times \mathrm{HR}_{i,\text{CI lower}}, \qquad q_{i,\text{hi}} = q_{\text{Low,hi}} \times \mathrm{HR}_{i,\text{CI upper}}$$
+</div>
 <p>These are labeled "plausible range" rather than "95% CI" because using all HR bounds
 simultaneously is conservative — the true 95% CI would be narrower.</p>
 
 <h3>Step 7 — Life expectancy</h3>
-<p>Remaining life expectancy is computed by integrating the shifted survival curve:</p>
-<div class="math-block">LE(category) = Σ_{x=age}^{119} S(x)
 
-where S(x) = Π_{t=age}^{x} (1 − q_user_cat(t))
-and q_user_cat(t) = q_SSA(t, sex) × (q_user_cat / q_pop) at the user's age,
-    held constant across all future ages (simplifying assumption).</div>
-<p>This is a simplified model. A full actuarial projection would require fitness-stratified
-mortality rates at every future age, which are not available from Mandsager's study.</p>
+<p>For each fitness category, we compute <em>expected remaining years of life</em> starting at
+the user's current age \(a\), integrating the shifted survival curve through age 119.</p>
+
+<p><strong>Mortality multiplier.</strong> The user's mortality in category \(i\) at age \(a\) is
+\(q_{\text{user},i}(a)\). We define a dimensionless multiplier relative to the life-table
+baseline:</p>
+<div class="math-block">
+$$m_i = \frac{q_{\text{user},i}(a)}{q_{\text{pop}}(a)}$$
+</div>
+<p>This multiplier combines the fitness HR and any selected comorbidity HRs:
+\(m_i = \mathrm{HR}_i / W \times \mathrm{HR}_{\text{user}}\).
+We apply it uniformly to every future age in the life table — a simplifying assumption
+discussed below.</p>
+
+<p><strong>Survival function.</strong> Starting at age \(a\), the probability of surviving to
+age \(x\) under multiplier \(m_i\) is:</p>
+<div class="math-block">
+$$S_i(x) = \prod_{t=a}^{x-1} \bigl(1 - \min(m_i \cdot q_{\text{SSA}}(t,\text{sex}),\; 1)\bigr)$$
+</div>
+
+<p><strong>Expected remaining years.</strong> Standard actuarial identity: remaining life
+expectancy equals the area under the survival curve, approximated by the discrete sum</p>
+<div class="math-block">
+$$\mathrm{LE}_i = \sum_{x=a}^{118} S_i(x+1) = \sum_{x=a}^{118} \prod_{t=a}^{x} \bigl(1 - m_i \cdot q_{\text{SSA}}(t,\text{sex})\bigr)$$
+</div>
+<p>(each term \(S_i(x+1)\) is the probability of being alive at the start of year \(x+1\),
+and each year of survival contributes exactly 1 to the sum.)</p>
+
+<p><strong>Life expectancy delta.</strong> The displayed "years gained or lost" is the
+difference in remaining LE relative to the user's current fitness category \(c\):</p>
+<div class="math-block">
+$$\Delta\mathrm{LE}(\text{target}) = \mathrm{LE}_{\text{target}} - \mathrm{LE}_{c}$$
+</div>
+
+<p><strong>Simplifying assumption and its implications.</strong> We apply the multiplier
+\(m_i\) uniformly across all future ages. In reality, fitness-associated mortality HRs may
+attenuate at older ages, and a person's fitness category is not fixed for life. This means
+the LE delta estimates are likely upper bounds on the causal benefit of a permanent fitness
+change. They should be interpreted as illustrative comparisons, not clinical predictions.</p>
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
@@ -315,8 +370,6 @@ an equivalent annual mortality burden.</p>
     White, middle-aged, from a tertiary referral center in the US Midwest. Results may
     differ in other racial, ethnic, age, or geographic groups.</li>
 
-  <li><strong>Sex as binary.</strong> Life tables and VO₂ norms use sex in a binary
-    biological sense. This is a limitation for transgender individuals.</li>
 </ol>
 
 

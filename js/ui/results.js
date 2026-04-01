@@ -26,8 +26,11 @@ const Results = {
     document.getElementById('hero-fitness').innerHTML =
       `Your VO₂ max of <strong>${vo2max.toFixed(1)} mL/kg/min</strong> places you in the ` +
       `<strong class="cat-${currentCategory}">${categoryLabel}</strong> fitness category ` +
-      `for a ${age}-year-old ${sexLabel} ` +
-      `(${pctText} of healthy US adults your age, per the FRIEND Registry).`;
+      `for a ${age}-year-old ${sexLabel} by ` +
+      `<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/" target="_blank" rel="noopener">Mandsager 2018</a> criteria. ` +
+      `For context, this is ${pctText} of healthy US adults your age per the ` +
+      `<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4919021/" target="_blank" rel="noopener">FRIEND Registry</a> ` +
+      `(a separate normative dataset with different thresholds).`;
 
     const riskNote = userRiskHR > 1
       ? ` With your health conditions (combined HR ${userRiskHR.toFixed(2)}×), your personal estimate is higher.`
@@ -77,7 +80,6 @@ const Results = {
         <td><span class="cat-dot cat-${cat}"></span>${CAT_LABEL[cat]}${isCurrent ? ' ★' : ''}</td>
         <td>${vo2Range}</td>
         <td>${fmtPercent(q)}/yr</td>
-        <td class="range-cell">${fmtPercent(lo)} – ${fmtPercent(hi)}</td>
         <td>${deltaCell}</td>
       `;
       tbody.appendChild(tr);
@@ -112,8 +114,14 @@ const Results = {
       card.className = `equiv-card equiv-${dir}`;
 
       const equivLines = RISK_EQUIVALENTS.map(re => {
-        const n = Math.abs(equivs[re.id]);
-        return `<span class="equiv-item"><strong>${fmtEquiv(n)}</strong> ${n === 1 ? re.label : re.labelPlural}</span>`;
+        const n    = Math.abs(equivs[re.id]);
+        const rang = result.riskEquivRangeByCategory[cat][re.id];
+        // Range bounds — take abs and reorder so lo ≤ hi
+        const rLo  = Math.abs(rang.lo);
+        const rHi  = Math.abs(rang.hi);
+        const [ra, rb] = rLo <= rHi ? [rLo, rHi] : [rHi, rLo];
+        const tipText = `Plausible range: ${fmtEquiv(ra)} – ${fmtEquiv(rb)} ${n === 1 ? re.label : re.labelPlural}/yr (based on HR 95% CIs)`;
+        return `<span class="equiv-item" title="${tipText}"><strong class="equiv-val">${fmtEquiv(n)}</strong> ${n === 1 ? re.label : re.labelPlural}<span class="equiv-tip">ⓘ</span></span>`;
       }).join(' &nbsp;·&nbsp; ');
 
       card.innerHTML = `

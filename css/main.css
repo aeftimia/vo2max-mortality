@@ -300,7 +300,19 @@ tr.current-row td {
   gap: 0.4rem;
   margin-bottom: 0.5rem;
 }
-.equiv-item { white-space: nowrap; }
+.equiv-item {
+  white-space: nowrap;
+  cursor: help;
+  position: relative;
+}
+.equiv-val { font-weight: 700; }
+.equiv-tip {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-left: 2px;
+  vertical-align: super;
+  line-height: 1;
+}
 .equiv-le { font-size: 0.8rem; color: var(--muted); }
 
 /* ─── Risk factor breakdown table ───────────────────────────────────────── */
