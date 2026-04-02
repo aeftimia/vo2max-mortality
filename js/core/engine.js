@@ -39,7 +39,7 @@
  * Dependencies (must be loaded before this file):
  *   ssa-life-tables.js               → getQx(), lifeExpectancy()
  *   friend-2022-continuous-model.js  → getNormalizedFitnessHR(), getPercentileFromVo2(), getVo2FromPercentile(), getNormalizationConstant()
- *   friend-2022-loader.js            → loads friend-2022-continuous.json
+ *   friend-2022-continuous-data.js   → FRIEND_2022_CONTINUOUS global
  *   risk-factors.js                  → computeRiskHR(), RISK_EQUIVALENTS
  */
 

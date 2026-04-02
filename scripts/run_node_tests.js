@@ -3,14 +3,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const jsonPath = path.join(__dirname, '..', 'js', 'data', 'friend-2022-continuous.json');
-if (!fs.existsSync(jsonPath)) {
-  console.error('friend-2022-continuous.json not found at', jsonPath);
+const jsPath = path.join(__dirname, '..', 'js', 'data', 'friend-2022-continuous-data.js');
+if (!fs.existsSync(jsPath)) {
+  console.error('friend-2022-continuous-data.js not found at', jsPath);
   process.exit(2);
 }
-const data = JSON.parse(fs.readFileSync(jsonPath,'utf8'));
-// Expose to module scope expected by the model (global variable in browser)
-global.FRIEND_2022_CONTINUOUS = data;
+const src = fs.readFileSync(jsPath, 'utf8');
+global.FRIEND_2022_CONTINUOUS = JSON.parse(src.replace(/^window\.FRIEND_2022_CONTINUOUS\s*=\s*/, '').replace(/;\s*$/, ''));
 
 const model = require(path.join(__dirname, '..', 'js', 'data', 'friend-2022-continuous-model.js'));
 

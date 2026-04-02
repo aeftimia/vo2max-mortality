@@ -7,7 +7,7 @@
  *   Age direction:        Monotone quadratic histospline (bin-average preserving)
  *   Percentile direction: Monotone cubic Hermite (PCHIP / Fritsch-Carlson)
  *
- * The JSON data (friend-2022-continuous.json) contains:
+ * The data (friend-2022-continuous-data.js) contains:
  *   - percentile_splines[sex][age]: {knots, coeffs, values}
  *   - normalization[sex][age]: k value
  *
@@ -77,11 +77,6 @@ function evalSpline(spline, x) {
 function getNormalizationConstant(age, sex, variant) {
   variant = variant || 'k';
 
-  if (!FRIEND_2022_CONTINUOUS.normalization ||
-      !FRIEND_2022_CONTINUOUS.normalization[sex]) {
-    throw new Error('No normalization data loaded for sex=' + sex + '. FRIEND 2022 data may not have loaded.');
-  }
-
   var k_values = FRIEND_2022_CONTINUOUS.normalization[sex];
 
   // Direct lookup for integer ages
@@ -111,8 +106,6 @@ function getNormalizationConstant(age, sex, variant) {
       return v1 * (1 - w) + v2 * w;
     }
   }
-
-  throw new Error('Failed to interpolate normalization constant for age=' + age + ', sex=' + sex);
 }
 
 /**
@@ -127,19 +120,8 @@ function getNormalizationConstant(age, sex, variant) {
  * @returns {number} VO2 max in mL/kg/min
  */
 function getVo2FromPercentile(age, percentile, sex) {
-  if (!FRIEND_2022_CONTINUOUS.percentile_splines ||
-      !FRIEND_2022_CONTINUOUS.percentile_splines[sex]) {
-    throw new Error('No spline data loaded for sex=' + sex + '. FRIEND 2022 data may not have loaded.');
-  }
-
-  // Clamp age to available range
   var clampedAge = Math.max(20, Math.min(89, Math.round(age)));
   var spline = FRIEND_2022_CONTINUOUS.percentile_splines[sex][String(clampedAge)];
-
-  if (!spline) {
-    throw new Error('No spline data for age=' + clampedAge + ', sex=' + sex);
-  }
-
   return evalSpline(spline, percentile);
 }
 
@@ -155,17 +137,8 @@ function getVo2FromPercentile(age, percentile, sex) {
  * @returns {number|null} percentile rank (0–100), or null if unmeasurable
  */
 function getPercentileFromVo2(age, vo2_mlkgmin, sex) {
-  if (!FRIEND_2022_CONTINUOUS.percentile_splines ||
-      !FRIEND_2022_CONTINUOUS.percentile_splines[sex]) {
-    throw new Error('No spline data loaded for sex=' + sex + '. FRIEND 2022 data may not have loaded.');
-  }
-
   var clampedAge = Math.max(20, Math.min(89, Math.round(age)));
   var spline = FRIEND_2022_CONTINUOUS.percentile_splines[sex][String(clampedAge)];
-  if (!spline) {
-    throw new Error('No spline data for age=' + clampedAge + ', sex=' + sex);
-  }
-
   var values = spline.values;
   var knots = spline.knots;
 
@@ -215,10 +188,6 @@ function getPercentileFromVo2(age, vo2_mlkgmin, sex) {
 function getNormalizedFitnessHR(age, vo2_mlkgmin, sex, ciVariant) {
   ciVariant = ciVariant || 'central';
 
-  // Derive HR-per-MET constants from the loaded JSON metadata (single source of truth)
-  if (!FRIEND_2022_CONTINUOUS.metadata || !FRIEND_2022_CONTINUOUS.metadata.constants) {
-    throw new Error('FRIEND 2022 metadata/constants not loaded.');
-  }
   var constants = FRIEND_2022_CONTINUOUS.metadata.constants;
   var HR_CENTRAL = constants.HR_per_MET;
   var HR_CI = constants.HR_per_MET_CI;

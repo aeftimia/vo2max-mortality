@@ -37,11 +37,7 @@ const RISK_EQUIVALENTS = [
 function computeRiskHR(selectedIds) {
   if (!selectedIds || selectedIds.length === 0) return 1.0;
   return selectedIds.reduce((product, id) => {
-    const factor = RISK_FACTORS.find(f => f.id === id);
-    if (!factor) {
-      throw new Error('Unknown risk factor ID: "' + id + '". Check that risk factor IDs in the HTML match those in RISK_FACTORS.');
-    }
-    return product * factor.hr;
+    return product * RISK_FACTORS.find(f => f.id === id).hr;
   }, 1.0);
 }
 

@@ -449,9 +449,9 @@ def compute_normalization_constant(model, age, hr_per_met=KOKKINOS_HR_PER_MET):
 # SECTION 7: Export to JSON
 # ============================================================================
 
-def export_model(models, output_file='js/data/friend-2022-continuous.json'):
+def export_model(models, output_file='js/data/friend-2022-continuous-data.js'):
     """
-    Export spline coefficients to JSON for JavaScript consumption.
+    Export spline coefficients as a JS file that sets window.FRIEND_2022_CONTINUOUS.
     """
     export_data = {
         'metadata': {
@@ -528,19 +528,11 @@ def export_model(models, output_file='js/data/friend-2022-continuous.json'):
                 'values': [round(v, 6) for v in sp['values']],
             }
 
-    with open(output_file, 'w') as f:
-        json.dump(export_data, f, indent=2)
-
-    # Also write a JS file that embeds the data directly (no fetch needed)
-    js_file = output_file.replace('.json', '-data.js')
     minified = json.dumps(export_data, separators=(',', ':'))
-    with open(js_file, 'w') as f:
+    with open(output_file, 'w') as f:
         f.write('window.FRIEND_2022_CONTINUOUS = ' + minified + ';\n')
 
-    print(f"  Written to: {output_file}")
-    print(f"  JSON size: {len(json.dumps(export_data)) / 1024:.1f} KB")
-    print(f"  Written to: {js_file}")
-    print(f"  JS size: {len(minified) / 1024 + 0.1:.1f} KB")
+    print(f"  Written to: {output_file} ({len(minified) / 1024:.1f} KB)")
 
     return export_data
 

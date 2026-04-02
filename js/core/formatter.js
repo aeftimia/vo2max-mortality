@@ -16,15 +16,6 @@ function fmtPercent(q) {
 }
 
 /**
- * Format a delta q (excess mortality) as a signed percent.
- */
-function fmtDeltaPercent(dq) {
-  const prefix = dq >= 0 ? '+' : '';
-  return prefix + fmtPercent(Math.abs(dq)).replace('%', '') +
-         (dq >= 0 ? '%' : '%');
-}
-
-/**
  * Format a number of risk equivalents.
  * e.g. 1.8 → "1.8", 0.15 → "0.15", 1234 → "1,234"
  */
@@ -57,21 +48,3 @@ function fmtAbsYears(y) {
   return y.toFixed(1);
 }
 
-/**
- * Human-readable label for a category.
- */
-const CAT_LABEL = {
-  Low:      'Low',
-  BelowAvg: 'Below Average',
-  AboveAvg: 'Above Average',
-  High:     'High',
-  Elite:    'Elite',
-};
-
-/**
- * Return a sentence describing the direction of a fitness change.
- * e.g. "Moving from Above Average to Elite..."
- */
-function fmtTransitionVerb(dq) {
-  return dq < 0 ? 'save' : 'cost';
-}
