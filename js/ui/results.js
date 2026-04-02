@@ -6,7 +6,6 @@
 const Results = {
   render(result) {
     this.renderHero(result);
-    this.renderTable(result);
     this.renderEquivalents(result);
     this.renderLE(result);
     this.renderRiskBreakdown(result);
@@ -37,50 +36,6 @@ const Results = {
       riskNote;
   },
 
-
-  // ── Mortality table ─────────────────────────────────────────────────────
-  renderTable(result) {
-    // FRIEND percentile bands for display
-    const cats = ['p90', 'p80', 'p70', 'p60', 'p50', 'p40', 'p30', 'p20', 'p10'];
-
-    // Category bounds are no longer used for computation; show FRIEND percentile bands for display
-    const boundsLabel = {
-      p90: '≥ 90th percentile', p80: '80–89th', p70: '70–79th', p60: '60–69th',
-      p50: '50–59th', p40: '40–49th', p30: '30–39th', p20: '20–29th', p10: '≤ 19th'
-    };
-
-    const tbody = document.getElementById('mortality-tbody');
-    tbody.innerHTML = '';
-
-    // For FRIEND bands, compute representative VO2 and continuous HR for display
-    for (const band of cats) {
-      const tr = document.createElement('tr');
-      const bandLabel = boundsLabel[band];
-
-      // Representative percentile for band
-      const repP = parseInt(band.slice(1)); // e.g., 'p90' -> 90
-      const repVo2 = getVo2FromPercentile(result.age, repP, result.sex);
-      const hr = getNormalizedFitnessHR(result.age, repVo2, result.sex);
-      const q = result.qPop * hr * result.userRiskHR;
-
-      // Compute CI range for this percentile using Kokkinos 95% CI (0.85–0.87 per MET)
-      // Each CI bound uses its own normalization constant (precomputed)
-      const hrLo = getNormalizedFitnessHR(result.age, repVo2, result.sex, 'lo');
-      const hrHi = getNormalizedFitnessHR(result.age, repVo2, result.sex, 'hi');
-      const qLo = result.qPop * hrLo * result.userRiskHR;
-      const qHi = result.qPop * hrHi * result.userRiskHR;
-      const ciTooltip = `Plausible range: ${fmtPercent(qLo)} – ${fmtPercent(qHi)}/yr (HR 95% CIs)`;
-
-      const isCurrent = Math.abs(repP - result.friendPercentile) < 5;
-
-      tr.innerHTML = `
-        <td>${bandLabel}${isCurrent ? ' ★' : ''}</td>
-        <td>${repVo2.toFixed(1)} mL/kg/min (approx.)</td>
-        <td title="${ciTooltip}">${fmtPercent(q)}/yr <span class="equiv-tip">ⓘ</span></td>
-      `;
-      tbody.appendChild(tr);
-    }
-  },
 
   // ── Risk equivalents ────────────────────────────────────────────────────
   renderEquivalents(result) {

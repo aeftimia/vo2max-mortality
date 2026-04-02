@@ -1,118 +1,16 @@
+// FRIEND 2022 continuous model data is loaded directly via
+// friend-2022-continuous-data.js (synchronous script tag).
+// No fetch, no synthetic fallback — if the data is missing, errors surface immediately.
+
 (function() {
-  // Declare on window immediately so loader can populate it before model script loads
-  if (!window.FRIEND_2022_CONTINUOUS) {
-    window.FRIEND_2022_CONTINUOUS = {};
+  if (!window.FRIEND_2022_CONTINUOUS ||
+      !window.FRIEND_2022_CONTINUOUS.percentile_splines ||
+      !window.FRIEND_2022_CONTINUOUS.normalization) {
+    throw new Error(
+      'FRIEND 2022 continuous model data not found. ' +
+      'Ensure friend-2022-continuous-data.js is loaded before this script.'
+    );
   }
-
-  const dataUrl = 'js/data/friend-2022-continuous.json';
-
-  function showDataWarning(message) {
-    var banner = document.getElementById('data-warning-banner');
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'data-warning-banner';
-      banner.style.cssText = 'background:#fff3cd;color:#856404;border:1px solid #ffc107;padding:0.75rem 1rem;margin:0.5rem 0;border-radius:4px;font-size:0.9rem;';
-      var target = document.querySelector('main') || document.body;
-      target.insertBefore(banner, target.firstChild);
-    }
-    banner.textContent = message;
-  }
-
-  function handleData(data) {
-    Object.assign(window.FRIEND_2022_CONTINUOUS, data);
-    if (data.metadata && data.metadata.model === 'synthetic_fallback') {
-      showDataWarning('⚠ Using approximate synthetic fitness data (FRIEND 2022 data failed to load). Results may be inaccurate. For accurate results, serve this page over HTTP.');
-    }
-    console.log('✓ FRIEND 2022 continuous model data loaded');
-    console.log('  Metadata:', data.metadata);
-    console.log('  Sexes:', Object.keys(data.percentile_splines || data.grids || {}));
-  }
-
-  function buildSyntheticFRIEND() {
-    console.log('Building synthetic FRIEND-like model for offline/file:// use...');
-    var sexes = ['male','female'];
-    var normalization = { male: {}, female: {} };
-    var percentile_splines = { male: {}, female: {} };
-
-    for (var s = 0; s < sexes.length; s++) {
-      var sex = sexes[s];
-      for (var age = 20; age <= 89; age++) {
-        // Simple linear percentile model for fallback
-        var median = (sex === 'male' ? 46 : 36) - 0.12 * (age - 20);
-        var spread = (sex === 'male' ? 18 : 16);
-        var p10 = median - spread / 2;
-        var p90 = median + spread / 2;
-
-        // Build a 2-piece linear spline [10, 50, 90]
-        var knots = [10, 50, 90];
-        var values = [p10, median, p90];
-        var coeffs = [];
-        for (var i = 0; i < knots.length - 1; i++) {
-          var h = knots[i + 1] - knots[i];
-          var slope = (values[i + 1] - values[i]) / h;
-          coeffs.push([0.0, slope, values[i]]);
-        }
-        percentile_splines[sex][String(age)] = {
-          knots: knots,
-          coeffs: coeffs,
-          values: values,
-        };
-
-        // Approximate normalization
-        var acc = 0;
-        for (var p = 1; p <= 99; p++) {
-          var frac = (p - 10) / 80;
-          frac = Math.max(0, Math.min(1, frac));
-          var vo2 = p10 + frac * (p90 - p10);
-          acc += Math.pow(0.86, vo2 / 3.5);
-        }
-        var avg = acc / 99;
-        normalization[sex][String(age)] = {
-          k: 1.0 / avg,
-          k_lo: 1.0 / avg,  // approximate
-          k_hi: 1.0 / avg,
-        };
-      }
-    }
-
-    var synthetic = {
-      metadata: {
-        model: 'synthetic_fallback',
-        note: 'Lightweight synthetic FRIEND-like model for offline/file:// testing. For production use, run a local HTTP server (python -m http.server) or deploy via http(s).',
-        constants: {
-          HR_per_MET: 0.86,
-          HR_per_MET_CI: [0.85, 0.87],
-          MET_divisor: 3.5,
-          VO2_floor: 10.0,
-        }
-      },
-      normalization: normalization,
-      percentile_splines: percentile_splines,
-    };
-
-    handleData(synthetic);
-  }
-
-  // Detect if running on file:// protocol
-  var isFileProtocol = window.location.protocol === 'file:';
-
-  if (isFileProtocol) {
-    console.log('File protocol detected; skipping fetch. Using embedded or synthetic FRIEND model.');
-    if (window.FRIEND_2022_EMBED) {
-      console.log('Using FRIEND_2022_EMBED from index.html');
-      handleData(window.FRIEND_2022_EMBED);
-    } else {
-      buildSyntheticFRIEND();
-    }
-    return;
-  }
-
-  // On http(s), attempt fetch
-  fetch(dataUrl).then(function(response) {
-    if (!response.ok) throw new Error('Failed to load FRIEND 2022 data: ' + response.statusText);
-    return response.json();
-  }).then(handleData).catch(function(error) {
-    console.warn('Fetch failed on http(s); falling back to synthetic model. Error:', error.message);
-    buildSyntheticFRIEND();
-  });
+  console.log('✓ FRIEND 2022 continuous model data verified');
+  console.log('  Model:', window.FRIEND_2022_CONTINUOUS.metadata.model);
 })();

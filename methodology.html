@@ -75,17 +75,17 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
 <p>The model is constructed as follows:</p>
 <ol>
   <li><strong>Spline fitting:</strong> FRIEND 2022 publishes VO₂ max percentiles (10th through 90th)
-    by age decade (20–29 through 80–89) and sex. Two custom piecewise-quadratic spline methods are
-    used to interpolate this data:
+    by age decade (20–29 through 80–89) and sex. Two spline methods are used to interpolate this data:
     <ul>
       <li><strong>Age direction — monotone quadratic histospline:</strong> The published values are
         treated as bin averages over each age decade (not point estimates at midpoints). A C¹
         piecewise-quadratic spline is fitted such that the integral over each decade bin exactly
         reproduces the published value. This is more faithful to how the FRIEND data is reported.
         Monotonicity (VO₂ decreasing with age) is enforced.</li>
-      <li><strong>Percentile direction — monotone quadratic spline with physiological bounds:</strong> At each
+      <li><strong>Percentile direction — monotone cubic Hermite (PCHIP):</strong> At each
         integer age, the 9 percentile values (10th–90th) from the age histosplines are extended to the
-        0th and 100th percentile and interpolated with a C¹ monotone quadratic spline across all 11
+        0th and 100th percentile and interpolated with a C¹ monotone piecewise-cubic spline
+        (Fritsch–Carlson algorithm, via scipy's PchipInterpolator) across all 11
         knots [0, 10, 20, …, 90, 100]:
         <ul>
           <li><strong>0th percentile:</strong> Set to ~10 mL/kg/min, the hard physiological floor
@@ -95,8 +95,8 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
             VO₂(100) = VO₂(90) + [VO₂(90) − VO₂(80)].</li>
         </ul>
       </li>
-      <li>Both directions guarantee: monotonicity, C¹ continuity, and exact polynomial integration
-        (no numerical quadrature needed for the VO₂ spline itself).</li>
+      <li>Both directions guarantee: monotonicity, C¹ continuity, and exact polynomial integration.
+        Gauss-Legendre quadrature is used for the exponential HR integral over each polynomial piece.</li>
     </ul>
   </li>
 
@@ -116,7 +116,7 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
       $$k(\text{age}, \text{sex}) = \frac{1}{\mathbb{E}[\mathrm{HR}_{\text{raw}}]} = \frac{1}{\int_0^1 0.86^{\mathrm{VO}_2(p) / 3.5} \, dp}$$
     </div>
     where the expectation is taken over a uniform percentile rank \(p \in [0, 1]\) and \(\mathrm{VO}_2(p)\)
-    is the piecewise-quadratic spline value at percentile \(p\). The integral is computed using
+    is the piecewise spline value at percentile \(p\). The integral is computed using
     16-point Gauss-Legendre quadrature on each polynomial piece.
     <br><br>
     Because the normalization constant depends on the HR-per-MET value, three separate constants
@@ -163,8 +163,8 @@ Public domain — US federal government work.</p>
 <p>The model uses a continuous, smooth, age/sex-specific fitness hazard function based on:</p>
 
 <ul>
-  <li><strong>FRIEND 2022 normative VO₂ max percentiles:</strong> Age/sex-specific piecewise-quadratic
-    splines (monotone histospline for age, monotone quadratic with physiological bounds for percentile) that
+  <li><strong>FRIEND 2022 normative VO₂ max percentiles:</strong> Age/sex-specific piecewise polynomial
+    splines (monotone quadratic histospline for age, monotone cubic Hermite/PCHIP for percentile) that
     give VO₂ max at any percentile rank (0–100) for ages 20–89.</li>
   <li><strong>Kokkinos 2022 hazard ratio:</strong> A constant 0.86 per +1 MET (=+3.5 mL/kg/min VO₂),
     consistent across age, sex, and race.</li>
@@ -179,7 +179,7 @@ and sex \(s\). This is the average annual mortality for the US population.</p>
 <h3>Step 2 — Fitness percentile to VO₂ max conversion</h3>
 <p>For a user with VO₂ max \(\text{VO}_2\) mL/kg/min, we estimate their fitness percentile \(p\)
 (relative rank among healthy US adults of the same age and sex) using the inverse of the fitted
-${citeLink('friend2022')} piecewise-quadratic percentile splines. The spline covers the full 0–100
+${citeLink('friend2022')} piecewise-cubic (PCHIP) percentile splines. The spline covers the full 0–100
 range with physiological bounds at the extremes (${citeLink('shephard2009', 'Shephard 2009')}).</p>
 
 <h3>Step 3 — Continuous fitness hazard ratio</h3>
@@ -328,9 +328,9 @@ an equivalent annual mortality burden.</p>
     mortality benefits than the observational HRs suggest.</li>
 
   <li><strong>Spline interpolation and extrapolation.</strong> The FRIEND 2022 percentile reference values are
-    fitted with custom monotone quadratic splines in both directions to ensure smooth monotonicity. The age
-    direction uses a histogram-preserving spline (bin-average exact on each decade); percentile uses a standard
-    quadratic spline with physiological extrapolation: p=0 is fixed at ~10 mL/kg/min (clinical floor for
+    fitted with custom monotone splines in both directions to ensure smooth monotonicity. The age
+    direction uses a quadratic histogram-preserving spline (bin-average exact on each decade); percentile uses
+    a monotone cubic Hermite spline (PCHIP/Fritsch-Carlson) with physiological extrapolation: p=0 is fixed at ~10 mL/kg/min (clinical floor for
     ambulatory humans), and p=100 mirrors the 80th→90th gap. Interpolation between published percentiles
     (10th–90th) is accurate to within ~0.5 mL/kg/min. These extrapolation assumptions are supported by
     physiological literature and do not rest on empirical data beyond the published FRIEND table.</li>

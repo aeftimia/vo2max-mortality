@@ -3,7 +3,7 @@
 Unit tests for FRIEND 2022 spline fitting and normalization.
 
 Tests cover:
-1. Monotone quadratic spline: interpolation, monotonicity, C1 continuity, flat tails
+1. Monotone cubic Hermite (PCHIP): interpolation, monotonicity, C1 continuity, flat tails
 2. Monotone histospline: bin-average preservation, monotonicity, C1 continuity
 3. Exact integrator: closed-form vs scipy.quad comparison
 4. Normalization: population-averaged HR equals 1.0
@@ -17,9 +17,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from fit_friend_splines import (
-    fit_monotone_quadratic_spline,
-    eval_quadratic_spline,
-    integrate_quadratic_spline,
+    fit_pchip,
+    eval_spline,
+    integrate_spline,
     fit_monotone_histospline,
     verify_histospline_integrals,
     build_full_model,
@@ -32,20 +32,20 @@ from fit_friend_splines import (
 
 
 # ============================================================================
-# Test 1: Monotone Quadratic Spline
+# Test 1: Monotone Cubic Hermite (PCHIP) Spline
 # ============================================================================
 
-class TestMonotoneQuadraticSpline:
+class TestMonotoneCubicSpline:
 
     def test_interpolation_at_knots(self):
         """Spline must pass exactly through data points."""
         x = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
         y = np.array([20, 25, 29, 32, 35, 38, 41, 45, 50], dtype=float)
-        spline = fit_monotone_quadratic_spline(x, y)
+        spline = fit_pchip(x, y)
 
         max_err = 0
         for xi, yi in zip(x, y):
-            val = eval_quadratic_spline(spline, xi)
+            val = eval_spline(spline, xi)
             err = abs(val - yi)
             max_err = max(max_err, err)
             assert err < 1e-10, f"At x={xi}: expected {yi}, got {val}, err={err}"
@@ -56,10 +56,10 @@ class TestMonotoneQuadraticSpline:
         """Monotone increasing data must produce monotone increasing spline."""
         x = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
         y = np.array([20, 25, 29, 32, 35, 38, 41, 45, 50], dtype=float)
-        spline = fit_monotone_quadratic_spline(x, y)
+        spline = fit_pchip(x, y)
 
         xs = np.linspace(10, 90, 1000)
-        vals = eval_quadratic_spline(spline, xs)
+        vals = eval_spline(spline, xs)
         diffs = np.diff(vals)
         assert np.all(diffs >= -1e-10), \
             f"Monotonicity violated: min diff = {diffs.min()}"
@@ -69,35 +69,29 @@ class TestMonotoneQuadraticSpline:
         """Monotone decreasing data must produce monotone decreasing spline."""
         x = np.array([20, 30, 40, 50, 60, 70, 80], dtype=float)
         y = np.array([50, 45, 40, 35, 30, 25, 20], dtype=float)
-        spline = fit_monotone_quadratic_spline(x, y)
+        spline = fit_pchip(x, y)
 
         xs = np.linspace(20, 80, 1000)
-        vals = eval_quadratic_spline(spline, xs)
+        vals = eval_spline(spline, xs)
         diffs = np.diff(vals)
         assert np.all(diffs <= 1e-10), \
             f"Monotonicity violated: max diff = {diffs.max()}"
         print("  PASS monotonicity (decreasing)")
 
     def test_c1_continuity(self):
-        """Derivative must be continuous at interior knots."""
+        """Derivative must be continuous at interior knots (checked numerically)."""
         x = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
         y = np.array([20, 25, 29, 32, 35, 38, 41, 45, 50], dtype=float)
-        spline = fit_monotone_quadratic_spline(x, y)
+        spline = fit_pchip(x, y)
 
-        coeffs = spline['coeffs']
         knots = spline['knots']
-
-        for i in range(len(coeffs) - 1):
-            a1, b1, c1 = coeffs[i]
-            a2, b2, c2 = coeffs[i + 1]
-            h = knots[i + 1] - knots[i]
-            # Right derivative of piece i
-            deriv_right = 2 * a1 * h + b1
-            # Left derivative of piece i+1
-            deriv_left = b2
-            err = abs(deriv_right - deriv_left)
-            assert err < 1e-8, \
-                f"C1 violation at knot {knots[i+1]}: left={deriv_left}, right={deriv_right}"
+        eps = 1e-6
+        for k in knots[1:-1]:
+            deriv_left = (eval_spline(spline, k) - eval_spline(spline, k - eps)) / eps
+            deriv_right = (eval_spline(spline, k + eps) - eval_spline(spline, k)) / eps
+            err = abs(deriv_left - deriv_right)
+            assert err < 1e-3, \
+                f"C1 violation at knot {k}: left={deriv_left}, right={deriv_right}"
 
         print("  PASS C1 continuity at interior knots")
 
@@ -105,14 +99,23 @@ class TestMonotoneQuadraticSpline:
         """Values outside knot range must equal endpoint values."""
         x = np.array([10, 20, 30, 40, 50], dtype=float)
         y = np.array([5, 10, 15, 20, 25], dtype=float)
-        spline = fit_monotone_quadratic_spline(x, y)
+        spline = fit_pchip(x, y)
 
-        assert eval_quadratic_spline(spline, 0) == y[0], "Left tail not flat"
-        assert eval_quadratic_spline(spline, 5) == y[0], "Left tail not flat"
-        assert eval_quadratic_spline(spline, 60) == y[-1], "Right tail not flat"
-        assert eval_quadratic_spline(spline, 100) == y[-1], "Right tail not flat"
+        assert eval_spline(spline, 0) == y[0], "Left tail not flat"
+        assert eval_spline(spline, 5) == y[0], "Left tail not flat"
+        assert eval_spline(spline, 60) == y[-1], "Right tail not flat"
+        assert eval_spline(spline, 100) == y[-1], "Right tail not flat"
 
         print("  PASS flat tails")
+
+    def test_cubic_coefficients_are_4_long(self):
+        """PCHIP should produce 4-coefficient (cubic) pieces."""
+        x = np.array([0, 10, 20, 30], dtype=float)
+        y = np.array([5, 15, 22, 30], dtype=float)
+        spline = fit_pchip(x, y)
+        for c in spline['coeffs']:
+            assert len(c) == 4, f"Expected 4 coefficients, got {len(c)}"
+        print("  PASS cubic coefficients are 4-long")
 
 
 # ============================================================================
@@ -123,19 +126,19 @@ class TestIntegrator:
 
     def test_constant_function(self):
         """Integral of constant spline should be value * width."""
-        spline = fit_monotone_quadratic_spline(
+        spline = fit_pchip(
             np.array([0, 10], dtype=float),
             np.array([5, 5], dtype=float))
-        integral = integrate_quadratic_spline(spline, 0, 10)
+        integral = integrate_spline(spline, 0, 10)
         assert abs(integral - 50.0) < 1e-10, f"Expected 50, got {integral}"
         print("  PASS constant function integral")
 
     def test_linear_function(self):
         """Integral of linear spline should match analytic result."""
-        spline = fit_monotone_quadratic_spline(
+        spline = fit_pchip(
             np.array([0, 10], dtype=float),
             np.array([0, 10], dtype=float))
-        integral = integrate_quadratic_spline(spline, 0, 10)
+        integral = integrate_spline(spline, 0, 10)
         expected = 50.0  # integral of x from 0 to 10
         assert abs(integral - expected) < 1e-10, f"Expected {expected}, got {integral}"
         print("  PASS linear function integral")
@@ -146,14 +149,14 @@ class TestIntegrator:
 
         x = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
         y = np.array([20, 25, 29, 32, 35, 38, 41, 45, 50], dtype=float)
-        spline = fit_monotone_quadratic_spline(x, y)
+        spline = fit_pchip(x, y)
 
         # Our exact integral
-        our_integral = integrate_quadratic_spline(spline, 0, 100)
+        our_integral = integrate_spline(spline, 0, 100)
 
         # scipy quad
         scipy_integral, _ = scipy_quad(
-            lambda xv: eval_quadratic_spline(spline, xv), 0, 100)
+            lambda xv: eval_spline(spline, xv), 0, 100)
 
         rel_err = abs(our_integral - scipy_integral) / abs(scipy_integral)
         assert rel_err < 1e-10, \
@@ -165,14 +168,14 @@ class TestIntegrator:
         """Integration over flat tails must work correctly."""
         x = np.array([10, 90], dtype=float)
         y = np.array([20, 50], dtype=float)
-        spline = fit_monotone_quadratic_spline(x, y)
+        spline = fit_pchip(x, y)
 
         # Left tail [0, 10]: constant 20
-        left = integrate_quadratic_spline(spline, 0, 10)
+        left = integrate_spline(spline, 0, 10)
         assert abs(left - 200.0) < 1e-10, f"Left tail: expected 200, got {left}"
 
         # Right tail [90, 100]: constant 50
-        right = integrate_quadratic_spline(spline, 90, 100)
+        right = integrate_spline(spline, 90, 100)
         assert abs(right - 500.0) < 1e-10, f"Right tail: expected 500, got {right}"
 
         print("  PASS flat tail integration")
@@ -181,10 +184,10 @@ class TestIntegrator:
         """Integration over partial intervals must be correct."""
         x = np.array([0, 10], dtype=float)
         y = np.array([0, 10], dtype=float)
-        spline = fit_monotone_quadratic_spline(x, y)
+        spline = fit_pchip(x, y)
 
         # Integral of x from 3 to 7 = (49 - 9)/2 = 20
-        integral = integrate_quadratic_spline(spline, 3, 7)
+        integral = integrate_spline(spline, 3, 7)
         expected = 20.0
         assert abs(integral - expected) < 1e-10, f"Expected {expected}, got {integral}"
 
@@ -230,7 +233,7 @@ class TestHistospline:
             for p in sorted(percentiles_data.keys()):
                 spline = fit_monotone_histospline(bin_edges, percentiles_data[p])
                 xs = np.linspace(bin_edges[0], bin_edges[-1], 1000)
-                vals = eval_quadratic_spline(spline, xs)
+                vals = eval_spline(spline, xs)
                 diffs = np.diff(vals)
                 assert np.all(diffs <= 1e-8), \
                     f"{sex} p{p}: monotonicity violated, max increase = {diffs.max()}"
@@ -245,9 +248,9 @@ class TestHistospline:
         bin_values = np.array([50, 45, 40, 35, 30, 25, 20], dtype=float)
         spline = fit_monotone_histospline(bin_edges, bin_values)
 
-        our_integral = integrate_quadratic_spline(spline, 20, 90)
+        our_integral = integrate_spline(spline, 20, 90)
         scipy_integral, _ = scipy_quad(
-            lambda x: eval_quadratic_spline(spline, x), 20, 90)
+            lambda x: eval_spline(spline, x), 20, 90)
 
         rel_err = abs(our_integral - scipy_integral) / abs(scipy_integral)
         assert rel_err < 1e-10, \
@@ -274,7 +277,7 @@ class TestNormalization:
 
                 # Verify: integral of k * 0.86^(VO2(p)/3.5) over [0,100] / 100 = 1.0
                 def integrand(p):
-                    vo2 = eval_quadratic_spline(
+                    vo2 = eval_spline(
                         model['percentile_splines'][age], p)
                     return k * KOKKINOS_HR_PER_MET ** (vo2 / 3.5)
 
@@ -309,7 +312,7 @@ class TestNormalization:
                     k = compute_normalization_constant(model, age, hr_per_met=hr_val)
 
                     def integrand(p, _k=k, _hr=hr_val):
-                        vo2 = eval_quadratic_spline(
+                        vo2 = eval_spline(
                             model['percentile_splines'][age], p)
                         return _k * _hr ** (vo2 / 3.5)
 
@@ -443,11 +446,11 @@ class TestFullModel:
 
 def run_all_tests():
     print("=" * 70)
-    print("SPLINE FITTING UNIT TESTS (v2: histospline + quadratic)")
+    print("SPLINE FITTING UNIT TESTS (v3: histospline + PCHIP)")
     print("=" * 70)
 
     test_suites = [
-        ("Monotone Quadratic Spline", TestMonotoneQuadraticSpline),
+        ("Monotone Cubic Hermite (PCHIP)", TestMonotoneCubicSpline),
         ("Exact Integrator", TestIntegrator),
         ("Monotone Histospline", TestHistospline),
         ("Normalization", TestNormalization),

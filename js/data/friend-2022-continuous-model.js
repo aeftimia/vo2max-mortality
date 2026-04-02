@@ -1,11 +1,11 @@
 /**
- * Continuous VO2 Max Fitness Model — Piecewise Quadratic Spline Evaluator
+ * Continuous VO2 Max Fitness Model — Piecewise Spline Evaluator
  *
- * Evaluates precomputed piecewise-quadratic spline coefficients exported by
+ * Evaluates precomputed piecewise spline coefficients exported by
  * scripts/fit_friend_splines.py.  Two interpolation methods are used:
  *
  *   Age direction:        Monotone quadratic histospline (bin-average preserving)
- *   Percentile direction: Monotone quadratic spline with flat tails (<10th, >90th)
+ *   Percentile direction: Monotone cubic Hermite (PCHIP / Fritsch-Carlson)
  *
  * The JSON data (friend-2022-continuous.json) contains:
  *   - percentile_splines[sex][age]: {knots, coeffs, values}
@@ -22,16 +22,17 @@ const FRIEND_2022_CONTINUOUS = (typeof window !== 'undefined')
   : global.FRIEND_2022_CONTINUOUS || {};
 
 /**
- * Evaluate a piecewise-quadratic spline at a single point.
+ * Evaluate a piecewise polynomial spline at a single point.
  *
- * Each piece: q(t) = a*t² + b*t + c, where t = x - knot[i].
+ * Coefficients are in descending power order (Horner's method).
+ * Supports any degree: cubic (4 coeffs), quadratic (3 coeffs), etc.
  * Outside the knot range, returns the endpoint value (flat tails).
  *
  * @param {Object} spline - {knots: number[], coeffs: number[][], values: number[]}
  * @param {number} x - evaluation point
  * @returns {number}
  */
-function evalQuadraticSpline(spline, x) {
+function evalSpline(spline, x) {
   var knots = spline.knots;
   var coeffs = spline.coeffs;
   var values = spline.values;
@@ -50,9 +51,14 @@ function evalQuadraticSpline(spline, x) {
   var i = lo;
   if (i >= coeffs.length) i = coeffs.length - 1;
 
-  var abc = coeffs[i];
+  // Horner's method: c[0]*t^n + c[1]*t^(n-1) + ... + c[n]
+  var c = coeffs[i];
   var t = x - knots[i];
-  return abc[0] * t * t + abc[1] * t + abc[2];
+  var val = c[0];
+  for (var j = 1; j < c.length; j++) {
+    val = val * t + c[j];
+  }
+  return val;
 }
 
 /**
@@ -112,7 +118,7 @@ function getNormalizationConstant(age, sex, variant) {
 /**
  * Get VO2 max from age and percentile rank.
  *
- * Uses piecewise-quadratic spline coefficients spanning [0, 100].
+ * Uses piecewise polynomial spline coefficients spanning [0, 100].
  * p=0 is the physiological floor (~10 mL/kg/min); p=100 mirrors the 80→90 gap.
  *
  * @param {number} age - integer age (20–89)
@@ -134,7 +140,7 @@ function getVo2FromPercentile(age, percentile, sex) {
     throw new Error('No spline data for age=' + clampedAge + ', sex=' + sex);
   }
 
-  return evalQuadraticSpline(spline, percentile);
+  return evalSpline(spline, percentile);
 }
 
 /**
@@ -151,12 +157,14 @@ function getVo2FromPercentile(age, percentile, sex) {
 function getPercentileFromVo2(age, vo2_mlkgmin, sex) {
   if (!FRIEND_2022_CONTINUOUS.percentile_splines ||
       !FRIEND_2022_CONTINUOUS.percentile_splines[sex]) {
-    return null;
+    throw new Error('No spline data loaded for sex=' + sex + '. FRIEND 2022 data may not have loaded.');
   }
 
   var clampedAge = Math.max(20, Math.min(89, Math.round(age)));
   var spline = FRIEND_2022_CONTINUOUS.percentile_splines[sex][String(clampedAge)];
-  if (!spline) return null;
+  if (!spline) {
+    throw new Error('No spline data for age=' + clampedAge + ', sex=' + sex);
+  }
 
   var values = spline.values;
   var knots = spline.knots;
@@ -172,11 +180,11 @@ function getPercentileFromVo2(age, vo2_mlkgmin, sex) {
   var step = (pHi - pLo) / nSteps;
 
   var prevP = pLo;
-  var prevV = evalQuadraticSpline(spline, prevP);
+  var prevV = evalSpline(spline, prevP);
 
   for (var s = 1; s <= nSteps; s++) {
     var p = pLo + s * step;
-    var v = evalQuadraticSpline(spline, p);
+    var v = evalSpline(spline, p);
 
     if ((prevV <= vo2_mlkgmin && v >= vo2_mlkgmin) ||
         (prevV >= vo2_mlkgmin && v <= vo2_mlkgmin)) {
@@ -208,10 +216,13 @@ function getNormalizedFitnessHR(age, vo2_mlkgmin, sex, ciVariant) {
   ciVariant = ciVariant || 'central';
 
   // Derive HR-per-MET constants from the loaded JSON metadata (single source of truth)
-  var constants = (FRIEND_2022_CONTINUOUS.metadata || {}).constants || {};
-  var HR_CENTRAL = constants.HR_per_MET || 0.86;
-  var HR_CI = constants.HR_per_MET_CI || [0.85, 0.87];
-  var MET_DIVISOR = constants.MET_divisor || 3.5;
+  if (!FRIEND_2022_CONTINUOUS.metadata || !FRIEND_2022_CONTINUOUS.metadata.constants) {
+    throw new Error('FRIEND 2022 metadata/constants not loaded.');
+  }
+  var constants = FRIEND_2022_CONTINUOUS.metadata.constants;
+  var HR_CENTRAL = constants.HR_per_MET;
+  var HR_CI = constants.HR_per_MET_CI;
+  var MET_DIVISOR = constants.MET_divisor;
 
   var hr_per_met, k_variant;
   if (ciVariant === 'lo') {
@@ -233,7 +244,7 @@ function getNormalizedFitnessHR(age, vo2_mlkgmin, sex, ciVariant) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    evalQuadraticSpline: evalQuadraticSpline,
+    evalSpline: evalSpline,
     getNormalizationConstant: getNormalizationConstant,
     getVo2FromPercentile: getVo2FromPercentile,
     getPercentileFromVo2: getPercentileFromVo2,

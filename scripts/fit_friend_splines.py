@@ -3,8 +3,7 @@
 Continuous VO2 Max Fitness Model: Custom Spline Fitting & Normalization
 ========================================================================
 
-Implements two custom monotone spline interpolation methods for FRIEND 2022
-percentile data:
+Implements two interpolation methods for FRIEND 2022 percentile data:
 
 1. **Age direction -- Monotone quadratic histospline:**
    FRIEND 2022 reports percentile values by age *bins* (20-29, 30-39, etc.).
@@ -12,14 +11,15 @@ percentile data:
    each bin equals the published value x bin width.  This is more faithful to
    the source data than treating values as point estimates at midpoints.
 
-2. **Percentile direction -- Monotone quadratic spline with flat tails:**
+2. **Percentile direction -- Monotone cubic Hermite (PCHIP):**
    The 9 published percentile ranks (10, 20, ..., 90) are treated as point
-   values. A C1 monotone quadratic spline interpolates between them, with
-   constant extrapolation below the 10th and above the 90th percentile.
+   values, extended to 0th and 100th with physiological bounds.  Scipy's
+   PchipInterpolator (Fritsch-Carlson) fits a C1 monotone piecewise-cubic
+   through all 11 knots.  Flat extrapolation outside [0, 100].
 
-Both directions use piecewise-quadratic polynomials, enabling exact closed-form
-integration for the normalization constant (no numerical quadrature needed for
-the VO2 spline itself; Gauss-Legendre is used for the exponential HR integral).
+The age direction uses piecewise-quadratic polynomials; the percentile
+direction uses piecewise-cubic.  Gauss-Legendre quadrature integrates
+the exponential HR function over each piece for normalization.
 
 References:
 -----------
@@ -35,6 +35,7 @@ References:
 
 import json
 import numpy as np
+from scipy.interpolate import PchipInterpolator
 
 # ============================================================================
 # SECTION 1: FRIEND 2022 Percentile Data
@@ -85,72 +86,40 @@ KOKKINOS_HR_CI_HI = 0.87
 
 
 # ============================================================================
-# SECTION 3: Monotone Quadratic Spline (for percentile direction)
+# SECTION 3: Monotone Cubic Hermite Spline (for percentile direction)
 # ============================================================================
 
-def fit_monotone_quadratic_spline(x, y):
+def fit_pchip(x, y):
     """
-    Fit a C1 monotone quadratic spline through (x, y) data points.
+    Fit a C1 monotone cubic Hermite interpolant via scipy PchipInterpolator.
 
-    Each piece is q_i(t) = a_i*t^2 + b_i*t + c_i  for t in [0, h_i]
-    where t = x - x_i, h_i = x_{i+1} - x_i.
-
-    Algorithm:
-      1. Choose initial slope at x_0 from one-sided finite difference.
-      2. Build pieces left-to-right: each piece is fully determined by
-         (y_i, y_{i+1}, slope_i).  The right-end derivative 2*a*h + b
-         becomes the left slope of the next piece (C1 by construction).
-      3. If a piece's vertex falls inside the interval (non-monotone),
-         replace the left slope with the secant and recompute.
+    Each piece is q_i(t) = a_i*t^3 + b_i*t^2 + c_i*t + d_i  for t in [0, h_i]
+    where t = x - x_i.
 
     Returns:
-        dict with keys: knots, values, coeffs [(a,b,c)...], slopes
+        dict with keys: knots, values, coeffs [(a,b,c,d)...], slopes
     """
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
-    n = len(x)
-    assert n >= 2, "Need at least 2 points"
+    pchip = PchipInterpolator(x, y)
 
-    dx = np.diff(x)
-    dy = np.diff(y)
-    secants = dy / dx
-
-    # Choose starting slope: use the secant of the first interval
-    slopes = [float(secants[0])]
-
-    # Build pieces left-to-right, propagating slopes for C1
+    # PPoly stores coefficients in descending power order: c[0]*t^3 + c[1]*t^2 + ...
+    # with t = x - breakpoint[i]
     coeffs = []
-    for i in range(n - 1):
-        h = dx[i]
-        c = y[i]
-        b = slopes[i]
-        a = (y[i + 1] - y[i] - b * h) / (h * h)
-
-        # Check monotonicity: vertex at t* = -b/(2a)
-        if a != 0:
-            t_vertex = -b / (2 * a)
-            if 0 < t_vertex < h:
-                # Vertex inside — use secant to guarantee monotonicity
-                b = float(secants[i])
-                a = (y[i + 1] - y[i] - b * h) / (h * h)
-                slopes[i] = b
-
-        coeffs.append((float(a), float(b), float(c)))
-
-        # Right-end derivative becomes left slope of next piece (C1)
-        right_deriv = 2 * a * h + b
-        slopes.append(float(right_deriv))
+    for i in range(len(pchip.x) - 1):
+        coeffs.append(tuple(float(pchip.c[j, i]) for j in range(4)))
 
     return {
         'knots': x.tolist(),
         'values': y.tolist(),
         'coeffs': coeffs,
-        'slopes': slopes,
+        'slopes': [float(pchip(xi, 1)) for xi in x],
     }
 
 
-def eval_quadratic_spline(spline, x_eval):
-    """Evaluate a quadratic spline at point(s) x_eval. Flat tails outside knot range."""
+def eval_spline(spline, x_eval):
+    """Evaluate a piecewise polynomial spline (any degree). Flat tails outside knot range.
+    Coefficients in descending power order, evaluated via Horner's method."""
     knots = np.asarray(spline['knots'])
     coeffs = spline['coeffs']
     scalar = np.isscalar(x_eval)
@@ -165,16 +134,20 @@ def eval_quadratic_spline(spline, x_eval):
         else:
             i = int(np.searchsorted(knots, xv, side='right')) - 1
             i = min(i, len(coeffs) - 1)
-            a, b, c = coeffs[i]
             t = xv - knots[i]
-            result[idx] = a * t * t + b * t + c
+            # Horner's method
+            val = coeffs[i][0]
+            for c in coeffs[i][1:]:
+                val = val * t + c
+            result[idx] = val
 
     return float(result[0]) if scalar else result
 
 
-def integrate_quadratic_spline(spline, x_lo, x_hi):
+def integrate_spline(spline, x_lo, x_hi):
     """
-    Exact closed-form integral of a quadratic spline over [x_lo, x_hi].
+    Exact closed-form integral of a piecewise polynomial spline over [x_lo, x_hi].
+    Coefficients in descending power order; works for any polynomial degree.
     Handles flat tails outside knot range.
     """
     knots = np.asarray(spline['knots'])
@@ -207,12 +180,14 @@ def integrate_quadratic_spline(spline, x_lo, x_hi):
         if lo >= hi:
             continue
 
-        a, b, c = coeffs[i]
+        c = coeffs[i]
         t_lo = lo - seg_lo
         t_hi = hi - seg_lo
+        n = len(c)
 
+        # Antiderivative: c[k]*t^(n-1-k) integrates to c[k]/(n-k) * t^(n-k)
         def antideriv(t):
-            return a / 3.0 * t**3 + b / 2.0 * t**2 + c * t
+            return sum(c[k] / (n - k) * t ** (n - k) for k in range(n))
 
         total += antideriv(t_hi) - antideriv(t_lo)
 
@@ -320,7 +295,7 @@ def verify_histospline_integrals(spline, bin_edges, bin_values, tol=0.05):
     errors = []
     for i in range(len(bin_values)):
         hi = bin_edges[i + 1] - bin_edges[i]
-        integral = integrate_quadratic_spline(spline, bin_edges[i], bin_edges[i + 1])
+        integral = integrate_spline(spline, bin_edges[i], bin_edges[i + 1])
         avg = integral / hi
         error = abs(avg - bin_values[i])
         errors.append(error)
@@ -366,12 +341,12 @@ def build_full_model(sex):
     0th and 100th percentile with physiological bounds:
       - p=0:   VO2_FLOOR (hard physiological minimum, ~10 mL/kg/min)
       - p=100: vo2(90) + (vo2(90) - vo2(80))  (mirror the 80->90 gap)
-    Then fit a monotone quadratic spline through all 11 knots [0,10,...,90,100].
+    Then fit a monotone cubic Hermite (PCHIP) through all 11 knots [0,10,...,90,100].
 
     Returns:
         dict with:
           'age_splines': {percentile: histospline}
-          'percentile_splines': {age: quadratic_spline}
+          'percentile_splines': {age: cubic_hermite_spline}
     """
     bin_edges, percentiles_data = get_age_bin_data(sex)
 
@@ -388,7 +363,7 @@ def build_full_model(sex):
     for age in range(20, 90):
         # Evaluate each age histospline at midpoint of the year
         vo2_at_friend = np.array([
-            eval_quadratic_spline(age_splines[p], float(age) + 0.5)
+            eval_spline(age_splines[p], float(age) + 0.5)
             for p in p_knots_friend
         ])
 
@@ -405,8 +380,8 @@ def build_full_model(sex):
         p_knots = np.concatenate([[0], p_knots_friend, [100]])
         vo2_values = np.concatenate([[vo2_p0], vo2_at_friend, [vo2_p100]])
 
-        # Fit monotone quadratic spline through all 11 points
-        pct_spline = fit_monotone_quadratic_spline(p_knots, vo2_values)
+        # Fit monotone cubic Hermite (PCHIP) through all 11 points
+        pct_spline = fit_pchip(p_knots, vo2_values)
         percentile_splines[age] = pct_spline
 
     return {
@@ -422,7 +397,7 @@ def get_vo2(model, age, percentile):
     flat tails at the endpoint values are used (but knots now span 0-100).
     """
     age = max(20, min(89, age))
-    return eval_quadratic_spline(model['percentile_splines'][age], percentile)
+    return eval_spline(model['percentile_splines'][age], percentile)
 
 
 # ============================================================================
@@ -435,7 +410,7 @@ def compute_normalization_constant(model, age, hr_per_met=KOKKINOS_HR_PER_MET):
 
     E[HR_raw] = (1/100) * integral_0^100 hr_per_met^(VO2(p)/3.5) dp
 
-    The VO2(p) spline is piecewise quadratic spanning [0, 100], so we integrate
+    The VO2(p) spline is piecewise cubic spanning [0, 100], so we integrate
     each piece separately using 16-point GL (exact to ~15 digits for smooth
     integrands on each piece).
     """
@@ -443,14 +418,11 @@ def compute_normalization_constant(model, age, hr_per_met=KOKKINOS_HR_PER_MET):
     knots = pct_spline['knots']
     coeffs = pct_spline['coeffs']
 
-    # GL nodes and weights
     gl_nodes, gl_weights = np.polynomial.legendre.leggauss(16)
 
     total = 0.0
-
-    # All pieces (knots now span 0-100, no separate flat tails)
     for i in range(len(coeffs)):
-        a, b, c = coeffs[i]
+        co = coeffs[i]
         x_lo = knots[i]
         x_hi = knots[i + 1]
         mid = (x_lo + x_hi) / 2
@@ -460,7 +432,10 @@ def compute_normalization_constant(model, age, hr_per_met=KOKKINOS_HR_PER_MET):
         for node, weight in zip(gl_nodes, gl_weights):
             p = mid + half * node
             t = p - x_lo
-            vo2 = a * t * t + b * t + c
+            # Horner's method
+            vo2 = co[0]
+            for c in co[1:]:
+                vo2 = vo2 * t + c
             hr = hr_per_met ** (vo2 / 3.5)
             piece_sum += weight * hr
 
@@ -480,13 +455,13 @@ def export_model(models, output_file='js/data/friend-2022-continuous.json'):
     """
     export_data = {
         'metadata': {
-            'model': 'continuous_vo2_fitness_v2',
+            'model': 'continuous_vo2_fitness_v3',
             'interpolation': {
                 'age_direction': 'monotone quadratic histospline (bin-average preserving)',
-                'percentile_direction': 'monotone quadratic spline with flat tails below 10th and above 90th',
+                'percentile_direction': 'monotone cubic Hermite (PCHIP / Fritsch-Carlson)',
             },
             'source': 'FRIEND 2022, Kokkinos 2022',
-            'description': 'Piecewise-quadratic spline coefficients for VO2max(age, percentile, sex)',
+            'description': 'Piecewise spline coefficients for VO2max(age, percentile, sex). Age: quadratic. Percentile: cubic.',
             'references': [
                 {
                     'title': 'Updated Reference Standards for Cardiorespiratory Fitness...',
@@ -556,8 +531,16 @@ def export_model(models, output_file='js/data/friend-2022-continuous.json'):
     with open(output_file, 'w') as f:
         json.dump(export_data, f, indent=2)
 
+    # Also write a JS file that embeds the data directly (no fetch needed)
+    js_file = output_file.replace('.json', '-data.js')
+    minified = json.dumps(export_data, separators=(',', ':'))
+    with open(js_file, 'w') as f:
+        f.write('window.FRIEND_2022_CONTINUOUS = ' + minified + ';\n')
+
     print(f"  Written to: {output_file}")
-    print(f"  File size: {len(json.dumps(export_data)) / 1024:.1f} KB")
+    print(f"  JSON size: {len(json.dumps(export_data)) / 1024:.1f} KB")
+    print(f"  Written to: {js_file}")
+    print(f"  JS size: {len(minified) / 1024 + 0.1:.1f} KB")
 
     return export_data
 
@@ -568,7 +551,7 @@ def export_model(models, output_file='js/data/friend-2022-continuous.json'):
 
 def main():
     print("=" * 80)
-    print("FRIEND 2022 Custom Spline Fitting (Histospline + Quadratic)")
+    print("FRIEND 2022 Custom Spline Fitting (Histospline + PCHIP)")
     print("=" * 80)
 
     models = {}

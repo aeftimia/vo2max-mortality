@@ -107,16 +107,10 @@ function computeMortality(inputs) {
     hi: lifeExpectancy(age, sex, qUserRange.lo / qPop),
   };
 
-  // ── Step 10: Life expectancy impact ──────────────────────────────────────
-  // Compute remaining LE using continuous model
-  // Remove legacy per-category LE calculations (they depended on removed arrays).
-
-  // Return continuous-model outputs
+  // ── Step 7: Return results ─────────────────────────────────────────────
   return {
-    // Inputs (echoed back for rendering)
     age, sex, vo2max, riskFactors,
 
-    // Classification (legacy category removed). Provide percentile only.
     friendPercentile: friendPercentileDisplay,
 
     // Population baseline
