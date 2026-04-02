@@ -266,16 +266,31 @@ tr.current-row td {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1rem;
-  background: var(--bg);
+  background: var(--surface);
 }
-.equiv-card.equiv-better { border-left: 4px solid var(--better); }
-.equiv-card.equiv-worse  { border-left: 4px solid var(--worse);  }
+.equiv-card.equiv-better {
+  border-left: 4px solid var(--better);
+  background: #f0fdf4;
+}
+.equiv-card.equiv-worse {
+  border-left: 4px solid var(--worse);
+  background: #fef2f2;
+}
 
 .equiv-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.equiv-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.equiv-dir-label {
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 .cat-badge {
   font-size: 0.78rem;

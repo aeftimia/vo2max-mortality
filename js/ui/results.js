@@ -129,16 +129,21 @@ const Results = {
       }).join(' &nbsp;·&nbsp; ');
 
       const card = document.createElement('div');
-      card.className = 'equiv-card';
-
-      const label = p === 10 ? 'Bottom decile (10th)' : p === 90 ? 'Top decile (90th)' : `${p}th percentile (decile)`;
       const dir = deltaQ < 0 ? 'better' : 'worse';
+      card.className = `equiv-card equiv-${dir}`;
+
+      const label = p === 10 ? '10th percentile' : p === 90 ? '90th percentile' : `${p}th percentile`;
       const verb = deltaQ < 0 ? 'reduce' : 'increase';
       const avoid = deltaQ < 0 ? 'avoiding' : 'adding';
+      const dirLabel = dir === 'better' ? '▲ better fitness' : '▼ worse fitness';
 
       card.innerHTML = `
         <div class="equiv-header">
-          <strong>${label}</strong> — approx ${vo2.toFixed(1)} mL/kg/min
+          <span class="equiv-label">${label}</span>
+          <span class="equiv-dir-label">${dirLabel}</span>
+        </div>
+        <div style="font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--muted);">
+          ≈ ${vo2.toFixed(1)} mL/kg/min
         </div>
         <p class="equiv-sentence">
           Moving to this percentile would ${verb} your annual mortality by
