@@ -327,13 +327,14 @@ an equivalent annual mortality burden.</p>
     being a modifiable risk factor. Exercise intervention trials show real but smaller
     mortality benefits than the observational HRs suggest.</li>
 
-  <li><strong>Spline interpolation and extrapolation.</strong> The FRIEND 2022 percentile values are
-    fitted with piecewise-quadratic splines: a monotone histospline (bin-average preserving) in
-    the age direction and a monotone quadratic spline in the percentile direction.
-    Interpolation between published percentiles (10th–90th) is accurate to within ~0.5 mL/kg/min.
-    Below the 10th percentile, the spline extrapolates to a physiological floor (~10 mL/kg/min);
-    above the 90th, it mirrors the 80th→90th gap. These tail assumptions are more realistic than
-    flat extrapolation but remain uncertain — the FRIEND data does not cover the extremes.</li>
+  <li><strong>Spline interpolation and extrapolation.</strong> The FRIEND 2022 percentile reference values are
+    fitted with PCHIP (Piecewise Cubic Hermite Interpolating Polynomial) splines in both the age and
+    percentile directions to ensure smooth monotonicity. Each decade's percentile value is treated as a
+    point estimate at the decade midpoint (e.g., 24.5 for ages 20–29). Interpolation between published
+    percentiles (10th–90th) is accurate to within ~0.5 mL/kg/min. Outside this range, the spline holds
+    constant (10th percentile value for p < 10, 90th for p > 90; age-edge values for ages < 20 or > 89).
+    These extrapolation assumptions are conservative but do not rest on empirical data beyond the
+    published FRIEND table.</li>
 
   <li><strong>Risk factor independence.</strong> Multiplying hazard ratios assumes each risk factor's
     effect is independent. Many conditions interact synergistically (e.g., diabetes + hypertension),
