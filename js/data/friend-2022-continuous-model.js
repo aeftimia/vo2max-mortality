@@ -55,8 +55,8 @@ if (typeof global !== 'undefined' && global.FRIEND_2022_CONTINUOUS) {
 function getNormalizationConstant(age, sex) {
   if (!FRIEND_2022_CONTINUOUS.normalization || 
       !FRIEND_2022_CONTINUOUS.normalization[sex]) {
-    console.warn(`No normalization data for sex=${sex}`);
-    return 1.0;
+    console.error(`ERROR: No normalization data for sex=${sex}. FRIEND 2022 model did not load correctly.`);
+    return 1.0;  // fallback for UI not to crash, but error is logged
   }
   
   const k_values = FRIEND_2022_CONTINUOUS.normalization[sex];
@@ -94,8 +94,8 @@ function getVo2FromPercentile(age, percentile, sex) {
   if (!FRIEND_2022_CONTINUOUS.grids ||
       !FRIEND_2022_CONTINUOUS.grids[sex] ||
       !FRIEND_2022_CONTINUOUS.grids[sex][age]) {
-    console.warn(`No grid data for age=${age}, sex=${sex}`);
-    return 30; // fallback
+    console.error(`ERROR: No grid data for age=${age}, sex=${sex}. FRIEND 2022 model did not load correctly.`);
+    return 30; // fallback for UI not to crash, but error is logged
   }
   
   // Clamp percentile to available range

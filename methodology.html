@@ -164,12 +164,6 @@ a continuously differentiable function of VO₂ max, derived from:</p>
 \(\mathbb{E}[k\cdot 0.86^{\mathrm{MET}}]=1\). Anchoring at the median (\(k=1/\mathrm{HR}_{\text{raw}}(\mathrm{VO}_{50})\)) would not guarantee this because of the convexity of the exponential:
 \(\mathbb{E}[0.86^{\mathrm{MET}}]\neq 0.86^{\mathbb{E}[\mathrm{MET}]}\). Integrating over the full percentile distribution preserves the true population mean and avoids bias from median-anchoring.</p>
 
-<h3>Backward compatibility</h3>
-<p>The continuous model is the primary calculation engine. For display purposes, the traditional
-Mandsager category boundaries (Low, BelowAvg, AboveAvg, High, Elite) are still shown in the
-results table. This allows users to see where they fall relative to the original 5-bin system
-while benefiting from the improved continuous hazard calculation underneath.</p>
-
 <h3>Sensitivity: hazard ratio range</h3>
 <p>Kokkinos et al. report the adjusted HR as 0.86 (95% CI: 0.85–0.87) per +1 MET. To propagate
 uncertainty, the calculator provides plausible ranges using the CI bounds. Note that this is a
@@ -396,50 +390,9 @@ an equivalent annual mortality burden.</p>
 
 <script>
 (function() {
-  const CATS = ['Low', 'BelowAvg', 'AboveAvg', 'High', 'Elite'];
-  const N_TOTAL = 122007;
-
-  // ── Mandsager full citation ──────────────────────────────────────────────
-  const mc = CITATIONS.mandsager2018;
-  document.getElementById('mandsager-citation').innerHTML =
-    `<strong>Full citation:</strong> ${mc.full}` +
-    (mc.doi ? ` DOI: <a href="https://doi.org/${mc.doi}" target="_blank" rel="noopener">${mc.doi}</a>.` : '') +
-    (mc.pmc ? ` Open access: <a href="${mc.url}" target="_blank" rel="noopener">${mc.pmc}</a>.` : '');
-
-  // ── Mandsager HR table ───────────────────────────────────────────────────
-  const hrTbody = document.querySelector('#mandsager-hr-table tbody');
-  for (const cat of CATS) {
-    const d = MANDSAGER_HR[cat];
-    const ciStr = cat === 'Low' ? '—' : `${d.ci[0].toFixed(2)} – ${d.ci[1].toFixed(2)}`;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${CAT_LABEL[cat]}</td><td>${d.hr.toFixed(2)}</td><td>${ciStr}</td>`;
-    hrTbody.appendChild(tr);
-  }
-
-  // ── W derivation (Step 2 math block) ─────────────────────────────────────
-  const terms = CATS.map(cat => {
-    const f = MANDSAGER_FRACTIONS[cat];
-    const hr = MANDSAGER_HR[cat].hr;
-    return `\\underbrace{${f.toFixed(4)} \\times ${hr.toFixed(2)}}_{\\text{${CAT_LABEL[cat]}}}`;
-  });
-  const W = MANDSAGER_W;
-  document.getElementById('w-derivation').innerHTML =
-    `$$\\boxed{\\; q_i = q_{\\text{pop}} \\times \\frac{\\mathrm{HR}_i}{\\bar{H}} \\;}$$\n\n` +
-    `$$\\bar{H} = \\sum_i f_i \\cdot \\mathrm{HR}_i = ${terms.join(' + ')} \\approx ${W.toFixed(3)}$$`;
-
-  // ── Cohort fractions paragraph ───────────────────────────────────────────
-  const nParts = CATS.map(cat => {
-    const n = Math.round(MANDSAGER_FRACTIONS[cat] * N_TOTAL);
-    return `${CAT_LABEL[cat]} (${n.toLocaleString()})`;
-  });
-  document.getElementById('cohort-fractions').innerHTML =
-    `The fractions f<sub>i</sub> are derived from sample sizes reported in Mandsager Table 1: ` +
-    nParts.join(', ') + `, total n = ${N_TOTAL.toLocaleString()}.`;
-
-  // ── Risk equivalent formulas (Step 5) ────────────────────────────────────
+  // ── Risk equivalent formulas ─────────────────────────────────────────────────
   const equivLines = RISK_EQUIVALENTS.map(re => {
     const invRate = Math.round(1 / re.mortalityPerEvent);
-    // Express the fraction nicely
     const fracStr = re.mortalityPerEvent < 0.001
       ? `1/${invRate.toLocaleString()}`
       : `1/${invRate.toLocaleString()}`;
@@ -466,11 +419,6 @@ an equivalent annual mortality burden.</p>
 
   document.getElementById('ssa-link').innerHTML =
     citeLink('ssaLifeTable', 'SSA Period Life Table, 2021');
-
-  // ── FRIEND citation ──────────────────────────────────────────────────────
-  const fr = CITATIONS.friend2015;
-  document.getElementById('friend-citation').innerHTML =
-    `<strong>Source:</strong> ${citeRef('friend2015')}`;
 
   // ── Risk factor HR table ─────────────────────────────────────────────────
   const rfTbody = document.querySelector('#risk-factor-table tbody');
