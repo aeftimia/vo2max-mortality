@@ -91,6 +91,7 @@ const Results = {
     container.innerHTML = '';
 
     // Suggest meaningful moves: adjacent deciles (up/down from current) + extremes
+    // Render in ascending percentile order for clarity
     const currentP = Math.round(getPercentileFromVo2(age, vo2max, sex));
     const currentDecile = Math.ceil(currentP / 10) * 10;
     
