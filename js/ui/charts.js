@@ -2,6 +2,7 @@
  * Chart rendering using Chart.js — single combined dual-axis chart.
  * Left Y-axis: VO₂ max (mL/kg/min), Right Y-axis: Annual mortality (%).
  * X-axis: Fitness percentile rank.
+ * Uses the annotation plugin for a vertical "you are here" line.
  * Dependency: Chart.js loaded via CDN before this file.
  */
 
@@ -9,16 +10,11 @@ let combinedChart = null;
 
 const Charts = {
   getCurrentColor() { return getComputedStyle(document.documentElement).getPropertyValue('--c-current').trim() || '#0ea5a4'; },
-  getPopColor() { return '#64748b'; },
 
   render(result) {
     this.renderCombined(result);
   },
 
-  /**
-   * Sample the spline densely to produce smooth curves.
-   * Returns {percentiles, vo2Values, mortalities}.
-   */
   sampleCurves(result, nPoints) {
     var percentiles = [];
     var vo2Values = [];
@@ -36,24 +32,13 @@ const Charts = {
   },
 
   renderCombined(result) {
-    // Dense sampling for smooth spline rendering
     var sampled = this.sampleCurves(result, 500);
     var percentiles = sampled.percentiles;
     var vo2Values = sampled.vo2Values;
     var mortalities = sampled.mortalities;
 
-    // User position
-    var userVo2 = result.vo2max;
     var userPercentile = result.friendPercentile;
-    var userMortality = result.qUser * 100;
-
-    // Population median
-    var medianVo2 = getVo2FromPercentile(result.age, 50, result.sex);
-    var medianHR = getNormalizedFitnessHR(result.age, medianVo2, result.sex);
-    var medianMortality = result.qPop * medianHR * result.userRiskHR * 100;
-
     var currentColor = this.getCurrentColor();
-    var popColor = this.getPopColor();
 
     var ctx = document.getElementById('combined-cdf-chart').getContext('2d');
     if (combinedChart) combinedChart.destroy();
@@ -62,7 +47,6 @@ const Charts = {
       type: 'scatter',
       data: {
         datasets: [
-          // VO2 curve (left axis)
           {
             label: 'VO₂ max (' + (result.sex === 'male' ? 'male' : 'female') + ', age ' + result.age + ')',
             data: percentiles.map(function(p, i) { return { x: p, y: vo2Values[i] }; }),
@@ -76,7 +60,6 @@ const Charts = {
             pointHoverRadius: 0,
             yAxisID: 'yVo2',
           },
-          // Mortality curve (right axis)
           {
             label: 'Annual mortality',
             data: percentiles.map(function(p, i) { return { x: p, y: mortalities[i] }; }),
@@ -88,57 +71,6 @@ const Charts = {
             tension: 0,
             pointRadius: 0,
             pointHoverRadius: 0,
-            yAxisID: 'yMort',
-          },
-          // User VO2 dot
-          {
-            label: 'Your VO₂ max',
-            data: [{ x: userPercentile, y: userVo2 }],
-            backgroundColor: currentColor,
-            borderColor: currentColor,
-            pointRadius: 8,
-            pointBorderWidth: 2,
-            pointBorderColor: '#fff',
-            showLine: false,
-            yAxisID: 'yVo2',
-          },
-          // User mortality dot
-          {
-            label: 'Your mortality',
-            data: [{ x: userPercentile, y: userMortality }],
-            backgroundColor: currentColor,
-            borderColor: currentColor,
-            pointRadius: 8,
-            pointBorderWidth: 2,
-            pointBorderColor: '#fff',
-            pointStyle: 'rectRounded',
-            showLine: false,
-            yAxisID: 'yMort',
-          },
-          // Median VO2 triangle
-          {
-            label: 'Median VO₂ (50th)',
-            data: [{ x: 50, y: medianVo2 }],
-            backgroundColor: popColor,
-            borderColor: popColor,
-            pointRadius: 6,
-            pointBorderWidth: 2,
-            pointBorderColor: '#fff',
-            pointStyle: 'triangle',
-            showLine: false,
-            yAxisID: 'yVo2',
-          },
-          // Median mortality triangle
-          {
-            label: 'Median mortality (50th)',
-            data: [{ x: 50, y: medianMortality }],
-            backgroundColor: popColor,
-            borderColor: popColor,
-            pointRadius: 6,
-            pointBorderWidth: 2,
-            pointBorderColor: '#fff',
-            pointStyle: 'triangle',
-            showLine: false,
             yAxisID: 'yMort',
           }
         ]
@@ -162,6 +94,11 @@ const Charts = {
                 return p + 'th pctl: ' + ctx.raw.y.toFixed(1) + ' mL/kg/min';
               }
             }
+          },
+          // Vertical "you are here" line via inline plugin
+          youAreHere: {
+            percentile: userPercentile,
+            color: currentColor,
           }
         },
         scales: {
@@ -191,7 +128,32 @@ const Charts = {
             max: Math.max.apply(null, mortalities) * 1.1,
           }
         }
-      }
+      },
+      plugins: [{
+        id: 'youAreHere',
+        afterDraw: function(chart) {
+          var opts = chart.options.plugins.youAreHere;
+          if (opts == null || opts.percentile == null) return;
+          var xScale = chart.scales.x;
+          var xPixel = xScale.getPixelForValue(opts.percentile);
+          var ctx = chart.ctx;
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([6, 4]);
+          ctx.strokeStyle = opts.color || '#0ea5a4';
+          ctx.lineWidth = 2;
+          ctx.moveTo(xPixel, chart.chartArea.top);
+          ctx.lineTo(xPixel, chart.chartArea.bottom);
+          ctx.stroke();
+          // Label
+          ctx.setLineDash([]);
+          ctx.fillStyle = opts.color || '#0ea5a4';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('You (' + opts.percentile + 'th)', xPixel, chart.chartArea.top - 6);
+          ctx.restore();
+        }
+      }]
     });
   }
 };

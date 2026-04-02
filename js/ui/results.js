@@ -44,7 +44,7 @@ const Results = {
     container.innerHTML = '';
 
     // Suggest meaningful moves: adjacent deciles (up/down from current) + extremes
-    // Render in ascending percentile order for clarity
+    // Only include targets that differ meaningfully from the user's current percentile
     const rawPercentile = getPercentileFromVo2(age, vo2max, sex);
     if (rawPercentile === null) {
       container.innerHTML = '<p class="equiv-error">Could not determine fitness percentile. FRIEND data may not have loaded.</p>';
@@ -52,14 +52,17 @@ const Results = {
     }
     const currentP = Math.round(rawPercentile);
     const currentDecile = Math.ceil(currentP / 10) * 10;
-    
+
     // Show: decile below (if exists), decile above (if exists), 10th, 90th
     const targets = [];
-    if (currentDecile > 10) targets.push(currentDecile - 10);  // decile below
-    if (currentDecile < 90) targets.push(currentDecile + 10);  // decile above
-    targets.push(10, 90);  // extremes
-    
-    const uniqueTargets = Array.from(new Set(targets)).sort((a, b) => a - b);
+    if (currentDecile > 10) targets.push(currentDecile - 10);
+    if (currentDecile < 90) targets.push(currentDecile + 10);
+    if (currentP > 15) targets.push(10);   // only show 10th if user is meaningfully above it
+    if (currentP < 85) targets.push(90);   // only show 90th if user is meaningfully below it
+
+    const uniqueTargets = Array.from(new Set(targets))
+      .filter(p => Math.abs(p - currentP) >= 5)  // skip targets too close to current
+      .sort((a, b) => a - b);
     const leCurrent = lifeExpectancy(age, sex, qUser / qPop);
 
     for (const p of uniqueTargets) {
@@ -129,35 +132,52 @@ const Results = {
 
   // ── Life expectancy summary ─────────────────────────────────────────────
   renderLE(result) {
-    const { leCurrent, lePopulation, leUserRange, age, sex, qPop, qUser, userRiskHR } = result;
+    const { leCurrent, lePopulation, leUserRange, age, sex, qPop, qUser, userRiskHR, friendPercentile } = result;
     const el = document.getElementById('le-summary');
 
     if (!el) return;
-    
-    // Compute LE impact for top and bottom deciles for comparison
-    const vo2Top = getVo2FromPercentile(age, 90, sex);
-    const vo2Bottom = getVo2FromPercentile(age, 10, sex);
-    const leTop = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Top, sex) * userRiskHR) / qPop);
-    const leBottom = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Bottom, sex) * userRiskHR) / qPop);
-
-    // CI ranges for top/bottom decile LE
-    const leTopLo = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Top, sex, 'hi') * userRiskHR) / qPop);
-    const leTopHi = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Top, sex, 'lo') * userRiskHR) / qPop);
-    const leBottomLo = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Bottom, sex, 'hi') * userRiskHR) / qPop);
-    const leBottomHi = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Bottom, sex, 'lo') * userRiskHR) / qPop);
 
     const currentTip = `Plausible range: ${fmtAbsYears(leUserRange.lo)} – ${fmtAbsYears(leUserRange.hi)} years (HR 95% CIs)`;
-    const topDeltaTip = `Plausible range: ${fmtYears(leTopLo - leCurrent)} to ${fmtYears(leTopHi - leCurrent)} (HR 95% CIs)`;
-    const bottomDeltaTip = `Plausible range: ${fmtYears(leBottomLo - leCurrent)} to ${fmtYears(leBottomHi - leCurrent)} (HR 95% CIs)`;
+
+    // Build comparison lines for percentiles above and below the user
+    function leAtPercentile(p) {
+      const vo2 = getVo2FromPercentile(age, p, sex);
+      return lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2, sex) * userRiskHR) / qPop);
+    }
+    function leCIRange(p) {
+      const vo2 = getVo2FromPercentile(age, p, sex);
+      const lo = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2, sex, 'hi') * userRiskHR) / qPop);
+      const hi = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2, sex, 'lo') * userRiskHR) / qPop);
+      return { lo, hi };
+    }
+
+    const comparisons = [];
+    // Pick one target above and one below, skipping if user is already at/beyond the extreme
+    const targets = [
+      { p: 90, labelUp: 'improved to the <strong>90th percentile</strong> (top decile)' },
+      { p: 10, labelDown: 'declined to the <strong>10th percentile</strong> (bottom decile)' },
+    ];
+
+    for (const t of targets) {
+      if (Math.abs(t.p - friendPercentile) < 3) continue; // skip if user is already ~there
+      const le = leAtPercentile(t.p);
+      const delta = le - leCurrent;
+      const ci = leCIRange(t.p);
+      const tip = `Plausible range: ${fmtYears(ci.lo - leCurrent)} to ${fmtYears(ci.hi - leCurrent)} (HR 95% CIs)`;
+      const verb = delta >= 0 ? 'improved' : 'declined';
+      const label = t.p > friendPercentile
+        ? (t.labelUp || `improved to the <strong>${t.p}th percentile</strong>`)
+        : (t.labelDown || `declined to the <strong>${t.p}th percentile</strong>`);
+      comparisons.push(
+        `If you ${label}: <strong title="${tip}" style="cursor:help">${fmtYears(delta)} <span class="equiv-tip">ⓘ</span></strong>.`
+      );
+    }
 
     el.innerHTML = `
       Your current fitness level implies a remaining life expectancy of approximately
       <strong title="${currentTip}" style="cursor:help">${fmtAbsYears(leCurrent)} <span class="equiv-tip">ⓘ</span></strong> years (vs. population average of
       <strong>${fmtAbsYears(lePopulation)}</strong> years).
-      <br><br>
-      <strong>Fitness impact on life expectancy:</strong><br>
-      If you improved to the <strong>90th percentile</strong> (top decile): <strong title="${topDeltaTip}" style="cursor:help">${fmtYears(leTop - leCurrent)} <span class="equiv-tip">ⓘ</span></strong>.<br>
-      If you declined to the <strong>10th percentile</strong> (bottom decile): <strong title="${bottomDeltaTip}" style="cursor:help">${fmtYears(leBottom - leCurrent)} <span class="equiv-tip">ⓘ</span></strong>.
+      ${comparisons.length ? '<br><br><strong>Fitness impact on life expectancy:</strong><br>' + comparisons.join('<br>') : ''}
       <br><br>
       <span class="small muted">(Based on ${citeLink('ssaLifeTable', 'SSA 2022 life table')}
       integration with continuous FRIEND+Kokkinos fitness model.)</span>
