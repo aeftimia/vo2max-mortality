@@ -1,5 +1,5 @@
 /**
- * Data from Mandsager et al. (2018)
+ * DEPRECATED: Legacy Mandsager data (2018). The project now uses FRIEND 2022 percentiles and Kokkinos 2022 continuous HR.
  * "Association Between Cardiorespiratory Fitness and Long-term Mortality
  *  Among Adults Undergoing Exercise Treadmill Testing"
  * JAMA Network Open. 2018;1(6):e183605.

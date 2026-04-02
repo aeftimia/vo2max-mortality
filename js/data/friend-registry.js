@@ -10,10 +10,8 @@
  *
  * Values in mL/kg/min at given percentile thresholds.
  *
- * IMPORTANT: These norms are used ONLY for the peer-comparison display
- * ("roughly the Nth percentile of healthy US adults your age").
- * They are NOT used in the mortality calculation, which uses Mandsager
- * cohort boundaries for internal consistency with the hazard ratios.
+ * NOTE: This file is deprecated. The application now uses friend-2022-continuous.json
+ * and the continuous FRIEND+Kokkinos model for both peer comparison and mortality calculations.
  */
 const FRIEND_NORMS = {
   male: [

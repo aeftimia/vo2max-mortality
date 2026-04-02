@@ -49,9 +49,11 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
 <ol>
   <li><strong>Anchor to population life tables.</strong> The CDC NVSS 2021 US Life Tables give the
     average annual probability of death q(age, sex) for the US population.</li>
-  <li><strong>Back-calculate fitness-stratified mortality.</strong> Using hazard ratios from
-    Mandsager et al. (2018), we derive the mortality rate for each of five fitness categories
-    such that the population-weighted average equals the life table value.</li>
+  <li><strong>Apply continuous fitness hazard model.</strong> Using FRIEND 2022 VO₂ max percentile norms
+    and Kokkinos et al. (2022) continuous hazard ratio (0.86 per +1 MET), we compute a smooth,
+    monotone fitness hazard multiplier normalized so that the population-average equals 1.0.
+    (For historical reference, the original categorical approach using Mandsager et al. 2018 is
+    retained for display comparison.)</li>
   <li><strong>Adjust for the user's risk factors.</strong> Comorbidity hazard ratios from
     large published studies are applied multiplicatively to shift the user's personal estimate.</li>
 </ol>
@@ -59,48 +61,120 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
-<h2>Primary Study: Mandsager et al. 2018</h2>
+<h2>Primary Studies: FRIEND 2022 & Kokkinos 2022</h2>
 
-<p id="mandsager-citation"><!-- filled by JS --></p>
+<p id="primary-citation"><!-- filled by JS --></p>
 
-<h3>Study design</h3>
-<p>Retrospective cohort study of 122,007 patients who underwent exercise treadmill testing at
-Cleveland Clinic between 1991 and 2014. Median follow-up 8.4 years; 13,637 deaths
-(1.1 million person-years). Cox proportional hazards models, adjusted for age, sex, year of test,
-and multiple comorbidities.</p>
-
-<h3>Fitness categories</h3>
-<p>Participants were classified into five groups by age- and sex-specific percentile rank within
-the cohort:</p>
+<h3>Study designs and data used here</h3>
+<p>The continuous model implemented in this calculator uses two complementary sources:
 <ul>
-  <li><strong>Low:</strong> &lt; 25th percentile</li>
-  <li><strong>Below Average:</strong> 25th–49th percentile</li>
-  <li><strong>Above Average:</strong> 50th–74th percentile</li>
-  <li><strong>High:</strong> 75th–97.5th percentile</li>
-  <li><strong>Elite:</strong> ≥ 97.5th percentile</li>
+  <li><strong>FRIEND 2022 Percentile Norms:</strong> Kaminsky LA, et al. Updated Reference Standards
+    for Cardiorespiratory Fitness Measured with Cardiopulmonary Exercise Testing: Data from the
+    Fitness Registry and the Importance of Exercise National Database (FRIEND). Mayo Clin Proc.
+    2022;97(2):285–293. DOI: 10.1016/j.mayocp.2021.08.020. The published tables report VO₂ max
+    percentiles (10th–90th, in 10% steps) stratified by decade (20–29 through 80–89) and sex;
+    these percentile curves are the basis for percentiles-to-VO₂ interpolation used by the tool.</li>
+  <li><strong>Kokkinos 2022 Hazard Ratio:</strong> Kokkinos P, et al. Cardiorespiratory Fitness and
+    Mortality Risk Across the Spectra of Age, Race, and Sex. J Am Coll Cardiol. 2022;80(6):598–609.
+    DOI: 10.1016/j.jacc.2022.05.031. This work provides a continuous adjusted hazard ratio of
+    0.86 per +1 MET (95% CI 0.85–0.87) which is applied continuously across VO₂ values
+    (MET = VO₂ / 3.5).</li>
+</ul>
+</p>
+
+<p class="small muted">Note: historical categorical results from Mandsager et al. (2018) were used in earlier versions
+of this calculator. Those five-category outputs have been removed from the default display in favor
+of the smooth FRIEND+Kokkinos continuous model. The Mandsager study is preserved in the
+project history for archival cross-checks only.</p>
+
+<h3>Why FRIEND deciles and not the old category bins?</h3>
+<p>FRIEND supplies high-resolution percentile tables by age and sex (10th–90th percentile in
+10% steps). The calculator fits smooth, monotone interpolants to these percentile-age grids
+and evaluates VO₂↔percentile continuously. Using FRIEND deciles avoids clinical-cohort biases
+in older categorical schemes and supports a normalized, population-mean-preserving hazard
+multiplier based on Kokkinos's continuous HR.</p>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<h2>Continuous Fitness Model: FRIEND 2022 + Kokkinos 2022</h2>
+
+<h3>Upgrade from categorical to continuous</h3>
+<p>As of 2026, the calculator has been upgraded from the discrete 5-bin Mandsager categories
+to a smooth, continuous model. The new approach replaces the step-function hazard ratios with
+a continuously differentiable function of VO₂ max, derived from:</p>
+<ul>
+  <li><strong>FRIEND 2022 Percentile Norms:</strong> Kaminsky LA, et al. <em>Updated Reference Standards
+    for Cardiorespiratory Fitness Measured with Cardiopulmonary Exercise Testing: Data from the
+    Fitness Registry and the Importance of Exercise National Database (FRIEND).</em>
+    <em>Mayo Clin Proc.</em> 2022;97(2):285–293. DOI: 10.1016/j.mayocp.2021.08.020</li>
+  <li><strong>Kokkinos 2022 Hazard Ratio:</strong> Kokkinos P, et al. <em>Cardiorespiratory Fitness and
+    Mortality Risk Across the Spectra of Age, Race, and Sex.</em>
+    <em>J Am Coll Cardiol.</em> 2022;80(6):598–609. DOI: 10.1016/j.jacc.2022.05.031</li>
 </ul>
 
-<h3>Hazard ratios (Table 2 of paper)</h3>
-<p>All-cause mortality, adjusted model, Low fitness as reference:</p>
-<table id="mandsager-hr-table">
-  <thead><tr><th>Category</th><th>Adjusted HR</th><th>95% CI</th></tr></thead>
-  <tbody><!-- filled by JS --></tbody>
-</table>
-<p class="small muted">Cross-checks: Elite vs High HR = 0.77 (CI 0.63–0.95);
-Below Average vs Above Average HR = 1.41 (CI 1.31–1.51). Both consistent with the table above.</p>
+<h3>Fitting and normalization</h3>
+<p>The model is constructed as follows:</p>
+<ol>
+  <li><strong>Spline fitting:</strong> FRIEND 2022 publishes VO₂ max percentiles (10th through 90th)
+    by age decade (20–29 through 80–89) and sex. Smooth, monotone splines (PCHIP) are fitted in both
+    the age and percentile directions, ensuring:
+    <ul>
+      <li>VO₂ max decreases monotonically with increasing age (physiologically correct).</li>
+      <li>At fixed age, VO₂ increases monotonically with percentile rank (by definition).</li>
+      <li>C¹ continuity (smooth derivatives) across all interpolated values.</li>
+      <li>Tail extrapolation: percentiles below 10 are clamped to the 10th-percentile curve;
+        percentiles above 90 are clamped to the 90th-percentile curve.</li>
+    </ul>
+  </li>
 
-<h3>VO₂ max category boundaries</h3>
-<p>Table 1 of the paper reports VO₂ max ranges (originally in METs; converted here via
-VO₂ = METs × 3.5) by age group and sex. These are the boundaries used in the calculator
-to classify a user's VO₂ max. Using the paper's own boundaries ensures that the HR applied
-matches the fitness level that was actually studied.</p>
+  <li><strong>Continuous hazard ratio:</strong> Following Kokkinos et al. 2022, the hazard ratio
+    for mortality is:
+    <div class="math-block">
+      $$\mathrm{HR}_{\text{raw}}(\mathrm{VO}_2) = 0.86^{\mathrm{MET}} \quad \text{where} \quad \mathrm{MET} = \frac{\mathrm{VO}_2}{3.5}$$
+    </div>
+    This formula is consistent across age, sex, and racial groups (Kokkinos et al. found no
+    significant interactions). The continuous functional form has been shown to fit observational
+    VO₂ max mortality data more accurately than categorical models.</li>
 
-<h3>Key limitation: clinical cohort</h3>
-<p>Mandsager's patients were referred for exercise treadmill testing — they are not a
-representative general population sample. Low-fitness patients in a cardiology referral cohort
-are likely sicker than low-fitness people in the general population, which could inflate the
-hazard ratio for Low vs Elite fitness. We assume the <em>relative</em> hazard ratios between
-categories transfer to the general population; this is an assumption, not a proven fact.</p>
+  <li><strong>Population-mean normalization:</strong> To ensure that the population-average fitness
+    hazard multiplier equals 1.0 (preserving the baseline life-table mortality), a normalization
+    constant \(k(\text{age}, \text{sex})\) is computed:
+    <div class="math-block">
+      $$k(\text{age}, \text{sex}) = \frac{1}{\mathbb{E}[\mathrm{HR}_{\text{raw}}]} = \frac{1}{\int_0^1 0.86^{\mathrm{VO}_2(p) / 3.5} \, dp}$$
+    </div>
+    where the expectation is taken over a uniform percentile rank \(p \in [0, 1]\) and \(\mathrm{VO}_2(p)\)
+    is the spline-interpolated value at percentile \(p\). This integral is computed numerically for each
+    age and sex using Gaussian quadrature.</li>
+
+  <li><strong>Normalized hazard:</strong> The user's fitness hazard multiplier is:
+    <div class="math-block">
+      $$\mathrm{HR}_{\text{fitness}}(\mathrm{age}, \mathrm{VO}_2, \text{sex}) = k(\text{age}, \text{sex}) \times 0.86^{\mathrm{VO}_2 / 3.5}$$
+    </div>
+    This ensures:
+    <ul>
+      <li>At the population-average VO₂ (50th percentile), \(\mathbb{E}[\mathrm{HR}_{\text{fitness}}] = 1.0\).</li>
+      <li>The population-weighted mortality remains anchored to the SSA life table.</li>
+      <li>Individual VO₂ values map smoothly and monotonically to hazard multipliers.</li>
+    </ul>
+  </li>
+</ol>
+
+<h3>Why integrate rather than anchor at the median?</h3>
+<p>Normalization is chosen so the expected (population-averaged) fitness hazard equals <strong>1.0</strong>:
+\(\mathbb{E}[k\cdot 0.86^{\mathrm{MET}}]=1\). Anchoring at the median (\(k=1/\mathrm{HR}_{\text{raw}}(\mathrm{VO}_{50})\)) would not guarantee this because of the convexity of the exponential:
+\(\mathbb{E}[0.86^{\mathrm{MET}}]\neq 0.86^{\mathbb{E}[\mathrm{MET}]}\). Integrating over the full percentile distribution preserves the true population mean and avoids bias from median-anchoring.</p>
+
+<h3>Backward compatibility</h3>
+<p>The continuous model is the primary calculation engine. For display purposes, the traditional
+Mandsager category boundaries (Low, BelowAvg, AboveAvg, High, Elite) are still shown in the
+results table. This allows users to see where they fall relative to the original 5-bin system
+while benefiting from the improved continuous hazard calculation underneath.</p>
+
+<h3>Sensitivity: hazard ratio range</h3>
+<p>Kokkinos et al. report the adjusted HR as 0.86 (95% CI: 0.85–0.87) per +1 MET. To propagate
+uncertainty, the calculator provides plausible ranges using the CI bounds. Note that this is a
+simplified uncertainty propagation; a full Bayesian posterior would require joint modeling of the
+spline parameters and the HR CI.</p>
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
@@ -314,7 +388,9 @@ an equivalent annual mortality burden.</p>
 
 <!-- Data files (same as calculator page — single source of truth) -->
 <script src="js/data/citations.js"></script>
-<script src="js/data/mandsager.js"></script>
+<!-- mandsager.js removed from methodology page (legacy) -->
+  <script src="js/data/friend-2022-loader.js"></script>
+  <script src="js/data/friend-2022-continuous-model.js"></script>
 <script src="js/data/risk-factors.js"></script>
 <script src="js/core/formatter.js"></script>
 

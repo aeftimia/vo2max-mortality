@@ -4,7 +4,7 @@
  * reference this object rather than hardcoding values.
  */
 const CITATIONS = {
-  mandsager2018: {
+  mandsager2018: { /* DEPRECATED: archival only */
     short: 'Mandsager 2018',
     full: 'Mandsager K, Harb S, Cremer P, Phelan D, Nissen SE, Jaber W. ' +
           'Association Between Cardiorespiratory Fitness and Long-term Mortality ' +
@@ -13,6 +13,13 @@ const CITATIONS = {
     doi: '10.1001/jamanetworkopen.2018.3605',
     pmc: 'PMC6324439',
     url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/',
+  },
+  kokkinos2022: {
+    short: 'Kokkinos 2022',
+    full: 'Kokkinos P, et al. Cardiorespiratory Fitness and Mortality Risk Across the ' +
+          'Spectra of Age, Race, and Sex. J Am Coll Cardiol. 2022;80(6):598–609.',
+    doi: '10.1016/j.jacc.2022.05.031',
+    url: 'https://www.jacc.org/doi/epdf/10.1016/j.jacc.2022.05.031'
   },
   friend2015: {
     short: 'FRIEND Registry',

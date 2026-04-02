@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VO₂ Max Mortality Calculator</title>
-  <meta name="description" content="Evidence-based calculator showing how cardiorespiratory fitness (VO₂ max) affects all-cause mortality risk, anchored to Mandsager 2018 hazard ratios and SSA life tables.">
+  <meta name="description" content="Evidence-based calculator showing how cardiorespiratory fitness (VO₂ max) affects all-cause mortality risk using a continuous FRIEND+Kokkinos model normalized to SSA life tables. Mandsager categories are shown for historical reference.">
   <link rel="stylesheet" href="css/main.css">
   <!-- Chart.js v4.4.4 -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -24,7 +24,7 @@
   <div class="page-intro">
     <h1>VO₂ Max Mortality Calculator</h1>
     <p>Estimates how your cardiorespiratory fitness level affects annual mortality risk,
-       and expresses the difference in everyday risk units. Based on Mandsager et al. (2018)
+       and expresses the difference in everyday risk units. Uses continuous FRIEND 2022 percentiles and Kokkinos 2022 hazard ratios (0.86 per MET); Mandsager et al. (2018) categories remain for historical comparison.
        hazard ratios anchored to US life tables. <a href="methodology.html">See full methodology →</a></p>
   </div>
 
@@ -63,7 +63,7 @@
       <summary>Health conditions (optional — adjusts your baseline mortality)</summary>
       <p style="font-size:0.8rem;color:#64748b;margin:0 0 0.8rem;">
         These shift your personal annual mortality estimate using published hazard ratios.
-        They do <em>not</em> affect the fitness category definitions or Mandsager HRs.
+        They do <em>not</em> affect the fitness category definitions; the mortality computation uses the continuous FRIEND+Kokkinos model rather than Mandsager HRs.
         Applied multiplicatively (independence assumed; see <a href="methodology.html">methodology</a>).
       </p>
       <div class="checkbox-group" id="risk-factor-checkboxes">
@@ -110,8 +110,7 @@
         </table>
       </div>
       <p class="small muted mt-1">
-        * VO₂ max boundaries from Mandsager 2018 Table 1 for your age/sex group (mL/kg/min).
-        Hover over any risk equivalent number below to see its plausible range.
+        * VO₂ max category boundaries are shown for historical reference (Mandsager 2018). The calculator's mortality computations use the continuous FRIEND 2022 + Kokkinos 2022 model described in methodology; category boundaries are displayed for user context only. Hover over any risk equivalent number below to see its plausible range.
       </p>
     </div>
 
@@ -189,8 +188,18 @@
 <!-- Data files -->
 <script src="js/data/citations.js"></script>
 <script src="js/data/ssa-life-tables.js"></script>
-<script src="js/data/mandsager.js"></script>
-<script src="js/data/friend-registry.js"></script>
+<!-- mandsager.js removed from main bundle (legacy) -->
+<!-- friend-registry.js (FRIEND 2015) removed; using friend-2022 continuous data -->
+<script src="js/data/friend-2022-loader.js"></script>
+<script src="js/data/friend-2022-continuous-model.js"></script>
+<!-- NOTE: If you open index.html via file:// in the browser, fetch() may be blocked by CORS.
+     For quick local testing, either run a simple HTTP server (python -m http.server) or
+     uncomment and populate the FRIEND_2022_EMBED block below to embed the JSON in the page. -->
+<!--
+<script>
+  // window.FRIEND_2022_EMBED = { /* copy friend-2022-continuous.json here for file:// testing */ };
+</script>
+-->
 <script src="js/data/risk-factors.js"></script>
 <!-- Core -->
 <script src="js/core/formatter.js"></script>
@@ -201,6 +210,7 @@
 <script src="js/ui/form.js"></script>
 <!-- Tests (debug mode only) -->
 <script src="js/tests/verify.js"></script>
+<script src="js/tests/test-continuous-model.js"></script>
 <!-- Init -->
 <script>
   document.addEventListener('DOMContentLoaded', () => Form.init());

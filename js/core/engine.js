@@ -1,42 +1,49 @@
 /**
- * Mortality Engine
+ * Mortality Engine (Continuous VO2 Model)
  *
  * Core computation linking VO2 max fitness level to absolute annual mortality
- * probability, anchored to SSA 2021 period life tables and Mandsager 2018
- * hazard ratios.
+ * probability, anchored to SSA 2021 period life tables and Kokkinos 2022
+ * continuous hazard ratios (0.86 per +1 MET, 95% CI 0.85–0.87).
  *
  * MATHEMATICAL APPROACH
  * ─────────────────────
  * 1. Obtain population baseline mortality q_pop from SSA life table.
  *
- * 2. Compute fitness-stratified mortality:
- *      H_bar = Σ(f_i × HR_i)      [population-weighted average HR]
- *      q_i   = q_pop × HR_i / H_bar
+ * 2. Compute continuous fitness hazard multiplier:
+ *      HR_fitness(VO2) = k(age, sex) × 0.86^(VO2 / 3.5)
  *
- *    Each group's mortality is the population rate scaled by how far its
- *    HR is above or below the weighted average. No single category is
- *    treated as a special reference — every group is computed the same way.
+ *    where k(age, sex) is the normalization constant computed such that the
+ *    population-averaged HR (integrated over uniform percentile ranks) equals 1.0.
+ *    This ensures that the average mortality in the population is preserved.
  *
- *    Assumption: Mandsager's proportional hazards between categories hold
- *    in the general population. The absolute mortality in Mandsager's
- *    clinical cohort is higher (referral bias), but the *ratios* are
- *    assumed transferable to the general population.
+ *    Reference: Kokkinos P, et al. Cardiorespiratory Fitness and Mortality Risk
+ *    Across the Spectra of Age, Race, and Sex. J Am Coll Cardiol. 2022;80(6):598–609.
+ *    DOI: 10.1016/j.jacc.2022.05.031
+ *    Adjusted HR = 0.86 (95% CI: 0.85–0.87) per +1 MET, consistent across age,
+ *    sex, and racial groups.
  *
- * 3. Apply user risk factors multiplicatively:
- *      HR_user = Π(HR_rf)          [independent risks — an approximation]
- *      q_user_i = q_i × HR_user
+ *    The k-constant is derived from FRIEND 2022 percentile norms (Kaminsky LA, et al.
+ *    Updated Reference Standards for Cardiorespiratory Fitness Measured with 
+ *    Cardiopulmonary Exercise Testing: Data from the Fitness Registry and the 
+ *    Importance of Exercise National Database (FRIEND). Mayo Clin Proc. 2022;97(2):285-293.
+ *    DOI: 10.1016/j.mayocp.2021.08.020).
  *
- * 4. Excess mortality vs current fitness level:
- *      Δq(target) = q_user[target] − q_user[current]
+ * 3. User's mortality for their current VO2:
+ *      q_user = q_pop × HR_fitness(VO2_current) × HR_risk_factors
+ *
+ * 4. Excess mortality vs current fitness level (for hypothetical target VO2):
+ *      Δq(target) = q_pop × (HR_fitness(VO2_target) - HR_fitness(VO2_current)) × HR_risk_factors
  *
  * 5. Express Δq in risk equivalent units (base jumps, anesthesias, skydives).
  *
  * Dependencies (must be loaded before this file):
- *   ssa-life-tables.js  → getQx(), lifeExpectancy()
- *   mandsager.js        → MANDSAGER_HR, MANDSAGER_FRACTIONS, MANDSAGER_W,
- *                         classifyMandsager(), getCategoryBounds()
- *   friend-registry.js  → estimateFriendPercentile()
- *   risk-factors.js     → computeRiskHR(), RISK_EQUIVALENTS
+ *   ssa-life-tables.js               → getQx(), lifeExpectancy()
+ *   (legacy) mandsager.js            → legacy category helpers (no longer required)
+ *                                      classifyMandsager(), getCategoryBounds()
+ *   friend-2022-continuous-model.js  → getNormalizedFitnessHR(), getPercentileFromVo2(), getVo2FromPercentile(), getNormalizationConstant()
+ *   friend-2022-loader.js            → loads friend-2022-continuous.json
+ *   friend-2022-continuous-model.js  → getNormalizedFitnessHR(), getPercentileFromVo2()
+ *   risk-factors.js                  → computeRiskHR(), RISK_EQUIVALENTS
  */
 
 const CATEGORIES = ['Low', 'BelowAvg', 'AboveAvg', 'High', 'Elite'];
@@ -60,145 +67,73 @@ function computeMortality(inputs) {
   // ── Step 1: Population baseline mortality from SSA life table ─────────────
   const qPop = getQx(age, sex);
 
-  // ── Step 2: Fitness-stratified mortality ───────────────────────────────────
-  // H_bar = Σ(f_i × HR_i)  — population-weighted average HR
-  // q_i   = q_pop × HR_i / H_bar
-  const H_bar = MANDSAGER_W;  // pre-computed constant ≈ 0.630
-
-  const qByCategory = {};
-  for (const cat of CATEGORIES) {
-    qByCategory[cat] = qPop * MANDSAGER_HR[cat].hr / H_bar;
-  }
+  // ── Step 2: Fitness hazard multiplier (continuous) ──────────────────────────
+  // HR_fitness = k(age, sex) × 0.86^(VO2 / 3.5)
+  // where k ensures population-averaged HR = 1.0
+  // 
+  // Kokkinos et al. 2022: adjusted HR = 0.86 (95% CI: 0.85–0.87) per +1 MET
+  // Consistent across age, sex, and racial groups.
+  // DOI: 10.1016/j.jacc.2022.05.031
+  const fitnessHR = getNormalizedFitnessHR(age, vo2max, sex);
 
   // ── Step 3: Apply user risk factors ───────────────────────────────────────
   const userRiskHR = computeRiskHR(riskFactors);
 
-  const qUserByCategory = {};
-  for (const cat of CATEGORIES) {
-    qUserByCategory[cat] = qByCategory[cat] * userRiskHR;
-  }
+  // ── Step 4: User's personal annual mortality ────────────────────────────────
+  const qUser = qPop * fitnessHR * userRiskHR;
 
-  // ── Step 4: Current category and user's personal mortality ────────────────
-  const currentCategory = classifyMandsager(vo2max, age, sex);
-  const qUser = qUserByCategory[currentCategory];
+  // ── Step 5: Estimate FRIEND percentile for display ────────────────────────
+  const friendPercentile = getPercentileFromVo2(age, vo2max, sex);
+  const friendPercentileDisplay = friendPercentile !== null
+    ? Math.max(1, Math.min(99, Math.round(friendPercentile)))
+    : null;
 
-  // ── Step 5: Excess mortality vs current (for every other category) ────────
-  const deltaQ = {};
-  const riskEquivByCategory = {};
+  // ── Step 6: Continuous-model outputs (legacy categorical outputs removed) ───
+  // The calculator no longer uses Mandsager categories for computation or display.
+  // Compute CI-propagated user ranges and life expectancy under the continuous model.
 
-  for (const cat of CATEGORIES) {
-    const dq = qUserByCategory[cat] - qUser;
-    deltaQ[cat] = dq;
+  // For continuous model: use CI from Kokkinos (HR = 0.86, CI 0.85-0.87 per MET)
+  const MET = vo2max / 3.5;
+  const HR_LO = Math.pow(0.85, MET);
+  const HR_HI = Math.pow(0.87, MET);
 
-    // Express excess mortality in risk equivalent units
-    const equivs = {};
-    for (const re of RISK_EQUIVALENTS) {
-      equivs[re.id] = dq / re.mortalityPerEvent;
-    }
-    riskEquivByCategory[cat] = equivs;
-  }
+  // k-constant and small spline-fit margin
+  const k = getNormalizationConstant(age, sex);
+  const k_margin = k * 0.01;
 
-  // ── Step 6: Plausible ranges (CI propagation) ─────────────────────────────
-  // Conservative bounds using HR 95% CIs. Not a formal joint CI.
-  // H_bar_hi uses upper CI bounds; H_bar_lo uses lower CI bounds.
-  const H_bar_hi = CATEGORIES.reduce((s, c) =>
-    s + MANDSAGER_FRACTIONS[c] * MANDSAGER_HR[c].ci[1], 0);
-  const H_bar_lo = CATEGORIES.reduce((s, c) =>
-    s + MANDSAGER_FRACTIONS[c] * MANDSAGER_HR[c].ci[0], 0);
+  // User's fitness HR plausible range (from Kokkinos CI)
+  const qUserRange = {
+    lo: qPop * (k - k_margin) * HR_LO * userRiskHR,
+    hi: qPop * (k + k_margin) * HR_HI * userRiskHR,
+  };
 
-  const qRangeByCategory = {};
-  for (const cat of CATEGORIES) {
-    const hrLo = MANDSAGER_HR[cat].ci[0];
-    const hrHi = MANDSAGER_HR[cat].ci[1];
-    qRangeByCategory[cat] = {
-      lo: qPop * hrLo / H_bar_hi * userRiskHR,
-      hi: qPop * hrHi / H_bar_lo * userRiskHR,
-    };
-  }
-
-  // Delta-q plausible range vs current category
-  const deltaQRangeByCategory = {};
-  const curLo = qRangeByCategory[currentCategory].lo;
-  const curHi = qRangeByCategory[currentCategory].hi;
-  for (const cat of CATEGORIES) {
-    deltaQRangeByCategory[cat] = {
-      lo: qRangeByCategory[cat].lo - curHi,
-      hi: qRangeByCategory[cat].hi - curLo,
-    };
-  }
-
-  // Risk equivalent ranges (N events at lo/hi of delta-q range)
-  const riskEquivRangeByCategory = {};
-  for (const cat of CATEGORIES) {
-    const equivs = {};
-    for (const re of RISK_EQUIVALENTS) {
-      equivs[re.id] = {
-        lo: deltaQRangeByCategory[cat].lo / re.mortalityPerEvent,
-        hi: deltaQRangeByCategory[cat].hi / re.mortalityPerEvent,
-      };
-    }
-    riskEquivRangeByCategory[cat] = equivs;
-  }
-
-  // ── Step 7: Life expectancy impact ───────────────────────────────────────
-  // Compute remaining LE for each category relative to population average,
-  // then express delta vs current category.
-  const leByCategory = {};
-  for (const cat of CATEGORIES) {
-    const mult = qUserByCategory[cat] / qPop;
-    leByCategory[cat] = lifeExpectancy(age, sex, mult);
-  }
+  // Life expectancy: population and current user
   const lePopulation = lifeExpectancy(age, sex, 1.0);
-  const leDeltaByCategory = {};
-  for (const cat of CATEGORIES) {
-    leDeltaByCategory[cat] = leByCategory[cat] - leByCategory[currentCategory];
-  }
+  const leCurrent = lifeExpectancy(age, sex, qUser / qPop);
 
-  // LE plausible range (CI propagation)
-  const leRangeByCategory = {};
-  for (const cat of CATEGORIES) {
-    const multLo = qRangeByCategory[cat].lo / qPop;
-    const multHi = qRangeByCategory[cat].hi / qPop;
-    leRangeByCategory[cat] = {
-      lo: lifeExpectancy(age, sex, multHi),  // higher mortality → lower LE
-      hi: lifeExpectancy(age, sex, multLo),  // lower mortality → higher LE
-    };
-  }
-  // LE delta range vs current category
-  const leDeltaRangeByCategory = {};
-  const curLeLo = leRangeByCategory[currentCategory].lo;
-  const curLeHi = leRangeByCategory[currentCategory].hi;
-  for (const cat of CATEGORIES) {
-    leDeltaRangeByCategory[cat] = {
-      lo: leRangeByCategory[cat].lo - curLeHi,
-      hi: leRangeByCategory[cat].hi - curLeLo,
-    };
-  }
+  // LE plausible range for user (from qUserRange)
+  const leUserRange = {
+    lo: lifeExpectancy(age, sex, qUserRange.hi / qPop), // higher mortality -> lower LE
+    hi: lifeExpectancy(age, sex, qUserRange.lo / qPop),
+  };
 
-  // ── Step 8: FRIEND peer percentile (context only) ────────────────────────
-  const friendPercentile = estimateFriendPercentile(vo2max, age, sex);
+  // ── Step 10: Life expectancy impact ──────────────────────────────────────
+  // Compute remaining LE using continuous model
+  // Remove legacy per-category LE calculations (they depended on removed arrays).
 
-  // ── Step 9: VO2 max category boundaries for display ──────────────────────
-  const categoryBounds = getCategoryBounds(age, sex);
-
+  // Return continuous-model outputs
   return {
     // Inputs (echoed back for rendering)
     age, sex, vo2max, riskFactors,
 
-    // Classification
-    currentCategory,
-    categoryLabel: CAT_LABEL[currentCategory],
-    friendPercentile: Math.round(friendPercentile),
-    categoryBounds,
+    // Classification (legacy category removed). Provide percentile only.
+    friendPercentile: friendPercentileDisplay,
 
     // Population baseline
     qPop,
 
-    // Per-category mortality (no user risk adjustment)
-    qByCategory,
-
-    // Per-category mortality (with user risk factors applied)
-    qUserByCategory,
+    // Continuous fitness hazard multiplier
+    fitnessHR,
 
     // User's current annual mortality
     qUser,
@@ -206,25 +141,12 @@ function computeMortality(inputs) {
     // Combined user risk HR
     userRiskHR,
 
-    // Weighted average HR (normalization constant)
-    H_bar,
-
-    // Excess mortality vs current category
-    deltaQ,
-
-    // Risk equivalents (N events worth of annual excess mortality)
-    riskEquivByCategory,
-    riskEquivRangeByCategory,
-
-    // Plausible range (CI-based)
-    qRangeByCategory,
-    deltaQRangeByCategory,
+    // CI-based user ranges
+    qUserRange,
 
     // Life expectancy
-    leByCategory,
     lePopulation,
-    leDeltaByCategory,
-    leRangeByCategory,
-    leDeltaRangeByCategory,
+    leCurrent,
+    leUserRange,
   };
 }

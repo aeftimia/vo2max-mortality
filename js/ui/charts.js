@@ -1,115 +1,80 @@
 /**
- * Chart rendering using Chart.js.
+ * Chart rendering using Chart.js showing FRIEND decile bands.
  * Dependency: Chart.js loaded via CDN before this file.
  */
 
 let mortalityChart = null;
 
 const Charts = {
-  // Read colors from CSS custom properties (single source of truth in main.css)
-  getColor(cat) {
-    const varMap = { Low: '--c-low', BelowAvg: '--c-below', AboveAvg: '--c-above',
-                     High: '--c-high', Elite: '--c-elite', current: '--c-current' };
-    return getComputedStyle(document.documentElement).getPropertyValue(varMap[cat]).trim();
-  },
+  // Return a neutral color for the band; current position will be highlighted
+  getBandColor() { return '#7c3aedcc'; },
+  getCurrentColor() { return getComputedStyle(document.documentElement).getPropertyValue('--c-current').trim() || '#0ea5a4'; },
 
   render(result) {
     this.renderMortalityBar(result);
   },
 
   renderMortalityBar(result) {
-    const cats = ['Low', 'BelowAvg', 'AboveAvg', 'High', 'Elite'];
-    const labels = cats.map(c => CAT_LABEL[c]);
-    const values = cats.map(c => +(result.qUserByCategory[c] * 100).toFixed(4));
-    const errorBarsLo = cats.map(c => +(result.qRangeByCategory[c].lo * 100).toFixed(4));
-    const errorBarsHi = cats.map(c => +(result.qRangeByCategory[c].hi * 100).toFixed(4));
+    // Deciles 10..90
+    const deciles = [10,20,30,40,50,60,70,80,90];
+    const labels = deciles.map(d => `${d}th`);
 
-    const backgroundColors = cats.map(c =>
-      c === result.currentCategory ? this.getColor('current') : this.getColor(c)
-    );
-    const borderColors = backgroundColors;
+    const values = deciles.map(d => {
+      const vo2 = getVo2FromPercentile(result.age, d, result.sex);
+      const hr = getNormalizedFitnessHR(result.age, vo2, result.sex);
+      const q = result.qPop * hr * result.userRiskHR;
+      return +(q * 100).toFixed(5); // percent
+    });
+
+    const popPct = +(result.qPop * 100).toFixed(5);
+
+    // Highlight nearest decile to user's percentile
+    const userP = Math.round(result.friendPercentile);
+    const nearestIdx = deciles.reduce((bestI, d, i) => Math.abs(d - userP) < Math.abs(deciles[bestI] - userP) ? i : bestI, 0);
+
+    const backgroundColors = deciles.map((d, i) => i === nearestIdx ? this.getCurrentColor() : this.getBandColor());
+    const borderColors = backgroundColors.map(c => c.replace(/cc?$/, '') );
 
     const ctx = document.getElementById('mortality-chart').getContext('2d');
     if (mortalityChart) mortalityChart.destroy();
-
-    // Population average as a scatter point / vertical reference
-    const popPct = +(result.qPop * 100).toFixed(4);
 
     mortalityChart = new Chart(ctx, {
       type: 'bar',
       data: {
         labels,
-        datasets: [
-          {
-            label: 'Annual mortality (%)',
-            data: values,
-            backgroundColor: backgroundColors.map(c => c + 'cc'),
-            borderColor: borderColors,
-            borderWidth: 2,
-            borderRadius: 4,
-          },
-          // Invisible scatter dataset used only for population avg tooltip
-          {
-            type: 'scatter',
-            label: `Population avg (${popPct}%)`,
-            data: cats.map(() => ({ x: popPct, y: null })),
-            pointRadius: 0,
-            showLine: false,
-          },
-        ],
+        datasets: [{
+          label: 'Annual mortality (%)',
+          data: values,
+          backgroundColor: backgroundColors,
+          borderColor: borderColors,
+          borderWidth: 1,
+          borderRadius: 4,
+        }]
       },
       options: {
         indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: {
-            display: true,
-            labels: {
-              filter: item => item.datasetIndex === 1,  // only show pop avg legend
-              boxWidth: 20,
-              font: { size: 11 },
-            },
-          },
+          legend: { display: false },
           tooltip: {
-            filter: item => item.datasetIndex === 0,
             callbacks: {
               label(ctx) {
-                const cat = cats[ctx.dataIndex];
-                const lo  = errorBarsLo[ctx.dataIndex];
-                const hi  = errorBarsHi[ctx.dataIndex];
-                return [
-                  `Annual mortality: ${ctx.raw.toFixed(4)}%`,
-                  `Plausible range: ${lo.toFixed(4)}% – ${hi.toFixed(4)}%`,
-                  cat === result.currentCategory ? '← Your current level' : '',
-                ].filter(Boolean);
-              },
-            },
-          },
+                return `Annual mortality: ${ctx.raw.toFixed(5)}%`;
+              }
+            }
+          }
         },
         scales: {
           x: {
-            title: {
-              display: true,
-              text: 'Annual mortality probability (%)',
-            },
-            ticks: {
-              callback: v => v.toFixed(3) + '%',
-            },
-          },
-          y: {
-            ticks: {
-              font: { weight: 'normal' },
-            },
-          },
-        },
-      },
+            title: { display: true, text: 'Annual mortality probability (%)' },
+            ticks: { callback: v => v.toFixed(4) + '%' }
+          }
+        }
+      }
     });
 
-    // Draw population average dashed line as a plugin (no external dependency)
-    if (mortalityChart._popLinePlugin) {
-      Chart.unregister(mortalityChart._popLinePlugin);
-    }
+    // Draw population average dashed line
     const popLinePlugin = {
       id: 'popLine_' + Date.now(),
       afterDraw(chart) {
@@ -121,7 +86,7 @@ const Charts = {
         const { ctx: c } = chart;
         c.save();
         c.beginPath();
-        c.setLineDash([6, 4]);
+        c.setLineDash([6,4]);
         c.moveTo(x, top);
         c.lineTo(x, bottom);
         c.strokeStyle = '#64748b';
@@ -131,9 +96,8 @@ const Charts = {
         c.font = '11px sans-serif';
         c.fillText('Pop. avg', x + 4, top + 14);
         c.restore();
-      },
+      }
     };
     Chart.register(popLinePlugin);
-    mortalityChart.update();
-  },
+  }
 };

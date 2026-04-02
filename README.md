@@ -8,10 +8,10 @@ An open-source static website that estimates how cardiorespiratory fitness (VO�
 
 Given your age, sex, VO₂ max, and any relevant health conditions, the calculator:
 
-1. Classifies your fitness level using VO₂ max boundaries from [Mandsager et al. 2018](https://doi.org/10.1001/jamanetworkopen.2018.3605)
-2. Estimates your annual mortality probability by anchoring Mandsager hazard ratios to the [SSA 2021 Period Life Table](https://www.ssa.gov/oact/STATS/table4c6.html)
+1. Classifies your fitness level using FRIEND 2022 percentile norms and estimates mortality using a continuous FRIEND+Kokkinos model (FRIEND 2022 percentiles + Kokkinos 2022 HR = 0.86 per +1 MET).
+2. Anchors population-average mortality to the SSA period life tables via an integral normalization so the expected fitness hazard equals 1.0.
 3. Adjusts for health conditions using HRs from large published studies
-4. Shows excess mortality from moving between fitness levels, expressed as equivalent annual risky activities
+4. Shows excess mortality from moving between fitness percentiles or deciles, expressed as equivalent annual risky activities
 
 ## Key data sources
 

@@ -15,8 +15,7 @@ const Results = {
 
   // ── Hero summary ────────────────────────────────────────────────────────
   renderHero(result) {
-    const { age, sex, vo2max, currentCategory, categoryLabel,
-            friendPercentile, qUser, qPop, userRiskHR } = result;
+    const { age, sex, vo2max, friendPercentile, qUser, qPop, userRiskHR, leCurrent } = result;
 
     const sexLabel = sex === 'male' ? 'male' : 'female';
     const pctText  = friendPercentile < 5  ? 'below the 5th percentile'
@@ -24,13 +23,9 @@ const Results = {
                    : `approximately the ${friendPercentile}th percentile`;
 
     document.getElementById('hero-fitness').innerHTML =
-      `Your VO₂ max of <strong>${vo2max.toFixed(1)} mL/kg/min</strong> places you in the ` +
-      `<strong class="cat-${currentCategory}">${categoryLabel}</strong> fitness category ` +
-      `for a ${age}-year-old ${sexLabel} ` +
-      `(${citeLink('mandsager2018')}).` +
-      `<br>Among healthy US adults your age, this is ${pctText} ` +
-      `(${citeLink('friend2015')} — ` +
-      `separate norms, different thresholds from the Mandsager categories above).`;
+      `Your VO₂ max of <strong>${vo2max.toFixed(1)} mL/kg/min</strong> is ${pctText} among healthy US adults of your age and sex.` +
+      `<br>This percentile is estimated from the FRIEND 2022 normative data (${citeLink('friend2022')}).` +
+      `<br>The calculator uses a continuous hazard model (Kokkinos 2022; HR = 0.86 per +1 MET) normalized to population life tables.`;
 
     const riskNote = userRiskHR > 1
       ? ` With your health conditions (combined HR ${userRiskHR.toFixed(2)}×), your personal estimate is higher.`
@@ -42,39 +37,40 @@ const Results = {
       riskNote;
   },
 
+
   // ── Mortality table ─────────────────────────────────────────────────────
   renderTable(result) {
     const { currentCategory, qUserByCategory, qRangeByCategory,
             categoryBounds } = result;
-    const cats = ['Elite', 'High', 'AboveAvg', 'BelowAvg', 'Low'];
+    // Use FRIEND percentiles display rather than Mandsager bins
+    const cats = ['p90', 'p80', 'p70', 'p60', 'p50', 'p40', 'p30', 'p20', 'p10'];
+
+    // Category bounds are no longer used for computation; show FRIEND percentile bands for display
+    const boundsLabel = {
+      p90: '≥ 90th percentile', p80: '80–89th', p70: '70–79th', p60: '60–69th',
+      p50: '50–59th', p40: '40–49th', p30: '30–39th', p20: '20–29th', p10: '≤ 19th'
+    };
 
     const tbody = document.getElementById('mortality-tbody');
     tbody.innerHTML = '';
 
-    for (const cat of cats) {
-      const isCurrent = cat === currentCategory;
-      const q    = qUserByCategory[cat];
-      const lo   = qRangeByCategory[cat].lo;
-      const hi   = qRangeByCategory[cat].hi;
-      const bounds = categoryBounds;
-
-      // VO2 max range label
-      let vo2Range;
-      if (cat === 'Low')      vo2Range = `< ${bounds.BelowAvg.toFixed(1)}`;
-      else if (cat === 'Elite') vo2Range = `≥ ${bounds.Elite.toFixed(1)}`;
-      else {
-        const keys = { BelowAvg: 'AboveAvg', AboveAvg: 'High', High: 'Elite' };
-        vo2Range = `${bounds[cat].toFixed(1)} – ${bounds[keys[cat]].toFixed(1)}`;
-      }
-
-      const rangeTooltip = `Plausible range: ${fmtPercent(lo)} – ${fmtPercent(hi)}/yr (HR 95% CIs)`;
-
+    // For FRIEND bands, compute representative VO2 and continuous HR for display
+    for (const band of cats) {
       const tr = document.createElement('tr');
-      if (isCurrent) tr.className = 'current-row';
+      const bandLabel = boundsLabel[band];
+
+      // Representative percentile for band
+      const repP = parseInt(band.slice(1)); // e.g., 'p90' -> 90
+      const repVo2 = getVo2FromPercentile(result.age, repP, result.sex);
+      const hr = getNormalizedFitnessHR(result.age, repVo2, result.sex);
+      const q = result.qPop * hr * result.userRiskHR;
+
+      const isCurrent = Math.abs(repP - result.friendPercentile) < 5;
+
       tr.innerHTML = `
-        <td><span class="cat-dot cat-${cat}"></span>${CAT_LABEL[cat]}${isCurrent ? ' ★' : ''}</td>
-        <td>${vo2Range}</td>
-        <td title="${rangeTooltip}">${fmtPercent(q)}/yr <span class="equiv-tip">ⓘ</span></td>
+        <td>${bandLabel}${isCurrent ? ' ★' : ''}</td>
+        <td>${repVo2.toFixed(1)} mL/kg/min (approx.)</td>
+        <td>${fmtPercent(q)}/yr</td>
       `;
       tbody.appendChild(tr);
     }
@@ -82,70 +78,39 @@ const Results = {
 
   // ── Risk equivalents ────────────────────────────────────────────────────
   renderEquivalents(result) {
-    const { currentCategory, deltaQ, riskEquivByCategory } = result;
+    const { age, sex, vo2max, qPop, qUser, userRiskHR } = result;
     const container = document.getElementById('equivalents-container');
     container.innerHTML = '';
 
-    const better = ['Elite', 'High', 'AboveAvg', 'BelowAvg'].filter(
-      c => c !== currentCategory && CATEGORIES.indexOf(c) > CATEGORIES.indexOf(currentCategory)
-    );
-    const worse  = ['BelowAvg', 'Low', 'AboveAvg', 'High'].filter(
-      c => c !== currentCategory && CATEGORIES.indexOf(c) < CATEGORIES.indexOf(currentCategory)
-    );
-    // Actually, let's order properly
-    const allOther = ['Low', 'BelowAvg', 'AboveAvg', 'High', 'Elite'].filter(
-      c => c !== currentCategory
-    );
+    // Suggest moving up or down a decile plus extremes (top/bottom decile)
+    const currentP = Math.round(getPercentileFromVo2(age, vo2max, sex));
+    const decile = Math.ceil(currentP / 10) * 10;
+    const targets = [Math.max(10, decile-10), decile, Math.min(90, decile+10), 10, 90];
+    const uniqueTargets = Array.from(new Set(targets));
+    const leCurrent = lifeExpectancy(age, sex, qUser / qPop);
 
-    for (const cat of allOther) {
-      const dq     = deltaQ[cat];
-      const equivs = riskEquivByCategory[cat];
-      const dir    = dq < 0 ? 'better' : 'worse';
-      const verb   = dq < 0 ? 'reduce' : 'increase';
-      const avoid  = dq < 0 ? 'avoiding' : 'adding';
+    for (const p of uniqueTargets) {
+      const vo2 = getVo2FromPercentile(age, p, sex);
+      const hrTarget = getNormalizedFitnessHR(age, vo2, sex);
+      const qUserTarget = qPop * hrTarget * userRiskHR;
+      const deltaQ = qUserTarget - qUser;
+      const leTarget = lifeExpectancy(age, sex, qUserTarget / qPop);
+      const deltaYears = leTarget - leCurrent;
 
       const card = document.createElement('div');
-      card.className = `equiv-card equiv-${dir}`;
+      card.className = 'equiv-card';
 
-      const equivLines = RISK_EQUIVALENTS.map(re => {
-        const n    = Math.abs(equivs[re.id]);
-        const rang = result.riskEquivRangeByCategory[cat][re.id];
-        const rLo  = Math.abs(rang.lo);
-        const rHi  = Math.abs(rang.hi);
-        const [ra, rb] = rLo <= rHi ? [rLo, rHi] : [rHi, rLo];
-        const tipText = `Plausible range: ${fmtEquiv(ra)} – ${fmtEquiv(rb)} ${n === 1 ? re.label : re.labelPlural}/yr (based on HR 95% CIs)`;
-        return `<span class="equiv-item" title="${tipText}"><strong class="equiv-val">${fmtEquiv(n)}</strong> ${n === 1 ? re.label : re.labelPlural}<span class="equiv-tip">ⓘ</span></span>`;
-      }).join(' &nbsp;·&nbsp; ');
-
-      // Δq plausible range tooltip
-      const dqRange = result.deltaQRangeByCategory[cat];
-      const dqLo = Math.abs(dqRange.lo);
-      const dqHi = Math.abs(dqRange.hi);
-      const [dqA, dqB] = dqLo <= dqHi ? [dqLo, dqHi] : [dqHi, dqLo];
-      const dqTip = `Plausible range: ${fmtPercent(dqA)} – ${fmtPercent(dqB)}/yr (HR 95% CIs)`;
-
-      // LE plausible range tooltip
-      const leD = result.leDeltaByCategory[cat];
-      const leRange = result.leDeltaRangeByCategory[cat];
-      const leLo = leRange.lo;
-      const leHi = leRange.hi;
-      const [leA, leB] = Math.abs(leLo) <= Math.abs(leHi) ? [leLo, leHi] : [leHi, leLo];
-      const leTip = `Plausible range: ${fmtYears(leA)} to ${fmtYears(leB)} (HR 95% CIs)`;
+      const label = p === 10 ? 'Bottom decile (10th)' : p === 90 ? 'Top decile (90th)' : `${p}th percentile (decile)`;
 
       card.innerHTML = `
         <div class="equiv-header">
-          <span class="cat-badge cat-${cat}">${CAT_LABEL[cat]}</span>
-          <span class="equiv-dir-label">${dir === 'better' ? '▲ better fitness' : '▼ worse fitness'}</span>
+          <strong>${label}</strong> — approx ${vo2.toFixed(1)} mL/kg/min
         </div>
-        <p class="equiv-sentence">
-          Moving from <strong>${CAT_LABEL[currentCategory]}</strong> to
-          <strong>${CAT_LABEL[cat]}</strong> would
-          <strong>${verb}</strong> your annual mortality by
-          <span title="${dqTip}" style="cursor:help"><strong>${fmtPercent(Math.abs(dq))}/yr</strong> <span class="equiv-tip">ⓘ</span></span> —
-          equivalent to ${avoid}:
+        <p>
+          Estimated annual mortality at this percentile: <strong>${fmtPercent(qUserTarget)}/yr</strong>.<br>
+          Difference from you: <strong>${fmtPercent(deltaQ)}/yr</strong>.<br>
+          Life expectancy change: <strong>${fmtYears(deltaYears)}</strong>.
         </p>
-        <div class="equiv-items">${equivLines}</div>
-        <p class="equiv-le" title="${leTip}" style="cursor:help">Life expectancy impact: <strong>${fmtYears(leD)}</strong> <span class="equiv-tip">ⓘ</span></p>
       `;
       container.appendChild(card);
     }
