@@ -348,9 +348,12 @@ an equivalent annual mortality burden.</p>
     ±5–15 mL/kg/min uncertainty, large enough to shift percentile rank by ~10 percentiles. This
     propagates directly into uncertainty in the fitness hazard multiplier.</li>
 
-  <li><strong>Proportionality across the life course.</strong> The model applies the fitness multiplier
-    uniformly at all future ages, assuming fitness remains constant. In reality, fitness typically
-    declines with age, and this assumption makes LE deltas likely upper bounds on actual benefit.</li>
+  <li><strong>Relative fitness constancy across the life course.</strong> The model applies a fitness
+    hazard multiplier derived from the user's current fitness percentile rank, uniformly to all
+    future ages. The baseline mortality is age-stratified (from SSA life tables). The assumption is
+    that the user's relative fitness rank (percentile) within their age cohort remains stable. In
+    reality, individuals may improve or decline relative to their cohort as they age, or experience
+    major health events that shift their fitness trajectory.</li>
 
   <li><strong>Population generalizability.</strong> The ${citeLink('friend2022')} normative data come from 
     a large fitness registry with predominantly White participants. The ${citeLink('kokkinos2022')} 
