@@ -1,8 +1,13 @@
 (function() {
+  // Declare on window immediately so loader can populate it before model script loads
+  if (!window.FRIEND_2022_CONTINUOUS) {
+    window.FRIEND_2022_CONTINUOUS = {};
+  }
+
   const dataUrl = 'js/data/friend-2022-continuous.json';
   
   function handleData(data) {
-    Object.assign(FRIEND_2022_CONTINUOUS, data);
+    Object.assign(window.FRIEND_2022_CONTINUOUS, data);
     console.log('✓ FRIEND 2022 continuous model data loaded');
     console.log('  Metadata:', data.metadata);
     console.log('  Sexes:', Object.keys(data.grids || {}));

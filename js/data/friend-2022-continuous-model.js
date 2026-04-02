@@ -26,17 +26,10 @@
 // Global object to hold FRIEND 2022 continuous model data
 // Populated by friend-2022-loader.js via fetch of friend-2022-continuous.json
 // In Node tests the JSON is injected into global.FRIEND_2022_CONTINUOUS before requiring this module.
-var FRIEND_2022_CONTINUOUS;
-if (typeof global !== 'undefined' && global.FRIEND_2022_CONTINUOUS) {
-  FRIEND_2022_CONTINUOUS = global.FRIEND_2022_CONTINUOUS;
-} else if (typeof window !== 'undefined' && window.FRIEND_2022_CONTINUOUS) {
-  FRIEND_2022_CONTINUOUS = window.FRIEND_2022_CONTINUOUS;
-} else if (typeof window !== 'undefined' && window.FRIEND_2022_EMBED) {
-  // fallback for file:// testing in browsers
-  FRIEND_2022_CONTINUOUS = window.FRIEND_2022_EMBED;
-} else {
-  FRIEND_2022_CONTINUOUS = {};
-}
+// In browser, always reference window.FRIEND_2022_CONTINUOUS
+const FRIEND_2022_CONTINUOUS = (typeof window !== 'undefined')
+  ? window.FRIEND_2022_CONTINUOUS || {}
+  : global.FRIEND_2022_CONTINUOUS || {};
 
 /**
  * Get normalization constant k(age, sex).
