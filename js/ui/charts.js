@@ -40,6 +40,12 @@ const Charts = {
     var userPercentile = result.friendPercentile;
     var currentColor = this.getCurrentColor();
 
+    var heading = document.getElementById('chart-heading');
+    if (heading) {
+      heading.textContent = 'Fitness & mortality distribution — '
+        + (result.sex === 'male' ? 'male' : 'female') + ', age ' + result.age;
+    }
+
     var ctx = document.getElementById('combined-cdf-chart').getContext('2d');
     if (combinedChart) combinedChart.destroy();
 
@@ -48,7 +54,7 @@ const Charts = {
       data: {
         datasets: [
           {
-            label: 'VO₂ max (' + (result.sex === 'male' ? 'male' : 'female') + ', age ' + result.age + ')',
+            label: 'VO₂ max',
             data: percentiles.map(function(p, i) { return { x: p, y: vo2Values[i] }; }),
             borderColor: '#7c3aed',
             backgroundColor: '#7c3aed20',
@@ -83,7 +89,7 @@ const Charts = {
           intersect: false,
         },
         plugins: {
-          legend: { display: true, position: 'top' },
+          legend: { display: false },
           tooltip: {
             callbacks: {
               label: function(ctx) {
