@@ -14,11 +14,21 @@
 <header class="site-header">
   <nav>
     <span class="logo">VO₂ Max &amp; Mortality</span>
-    <a href="index.html">Calculator</a>
-    <a href="methodology.html">Methodology</a>
-    <a href="https://github.com/aeftimia/vo2max-mortality" target="_blank" rel="noopener">GitHub</a>
+    <button class="burger" id="burger" aria-label="Toggle menu" aria-expanded="false">&#9776;</button>
+    <div class="nav-links" id="nav-links">
+      <a href="index.html">Calculator</a>
+      <a href="methodology.html">Methodology</a>
+      <a href="https://github.com/aeftimia/vo2max-mortality" target="_blank" rel="noopener">GitHub</a>
+    </div>
   </nav>
 </header>
+<script>
+  document.getElementById('burger').addEventListener('click', function() {
+    var links = document.getElementById('nav-links');
+    var open = links.classList.toggle('open');
+    this.setAttribute('aria-expanded', open);
+  });
+</script>
 
 <main>
   <div class="page-intro">
@@ -50,7 +60,7 @@
 
       <div class="field" style="grid-column: 1 / -1;">
         <label for="vo2max">VO₂ max (mL/kg/min)</label>
-        <input type="number" id="vo2max" min="5" max="100" step="0.1" placeholder="e.g. 42.5">
+        <input type="number" id="vo2max" min="5" max="100" step="0.1" placeholder="e.g. 35">
         <details>
           <summary>How to estimate your VO₂ max</summary>
           <ul id="vo2-methods-list" style="font-size:0.875rem; color:#64748b; margin: 0.5rem 0 0 1.2rem; line-height:1.7;">
@@ -92,7 +102,7 @@
       <h2 id="chart-heading">Fitness &amp; mortality distribution</h2>
       <p class="muted small">Shows VO₂ max (purple, left axis) and annual mortality (red, right axis) across fitness percentiles.
          Dashed teal line = your position.</p>
-      <div class="chart-container" style="height:400px;">
+      <div class="chart-container">
         <canvas id="combined-cdf-chart" role="img"
                 aria-label="Combined CDF of VO₂ max and annual mortality by fitness percentile"></canvas>
       </div>

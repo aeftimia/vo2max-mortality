@@ -50,9 +50,45 @@ a:hover { text-decoration: underline; }
   font-size: 1rem;
   color: var(--text);
   white-space: nowrap;
+  margin-right: auto;
 }
+.site-header .nav-links { display: flex; gap: 2rem; }
 .site-header nav a { color: var(--muted); font-size: 0.9rem; }
 .site-header nav a:hover { color: var(--text); text-decoration: none; }
+
+/* Burger menu */
+.burger {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text);
+  padding: 0.25rem;
+  margin-left: auto;
+}
+@media (max-width: 600px) {
+  .burger { display: block; }
+  .site-header .nav-links {
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    position: absolute;
+    top: 56px;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    z-index: 100;
+  }
+  .site-header .nav-links.open { display: flex; }
+  .site-header .nav-links a {
+    padding: 0.75rem 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .site-header { position: relative; }
+}
 
 main {
   max-width: 960px;
@@ -251,7 +287,8 @@ tr.current-row td {
 .cat-dot.cat-Elite    { background: var(--c-elite); }
 
 /* ─── Chart ─────────────────────────────────────────────────────────────── */
-.chart-container { height: 320px; margin: 1.2rem 0; }
+.chart-container { height: 360px; margin: 1.2rem 0; }
+@media (max-width: 600px) { .chart-container { height: 300px; } }
 
 /* ─── Equivalents ───────────────────────────────────────────────────────── */
 #equivalents-container {

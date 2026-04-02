@@ -84,6 +84,7 @@ const Charts = {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        layout: { padding: { top: 24, bottom: 0 } },
         interaction: {
           mode: 'nearest',
           intersect: false,
@@ -110,7 +111,7 @@ const Charts = {
         scales: {
           x: {
             type: 'linear',
-            title: { display: true, text: 'Fitness percentile rank' },
+            title: { display: true, text: 'Fitness percentile rank', padding: { top: 2, bottom: 0 } },
             min: 0,
             max: 100,
             ticks: { stepSize: 10 }
@@ -156,7 +157,8 @@ const Charts = {
           ctx.fillStyle = opts.color || '#0ea5a4';
           ctx.font = 'bold 11px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('You (' + opts.percentile + 'th)', xPixel, chart.chartArea.top - 6);
+          ctx.textBaseline = 'bottom';
+          ctx.fillText('You (' + opts.percentile + 'th)', xPixel, chart.chartArea.top - 4);
           ctx.restore();
         }
       }]

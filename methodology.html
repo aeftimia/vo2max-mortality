@@ -25,11 +25,21 @@
 <header class="site-header">
   <nav>
     <span class="logo">VO₂ Max &amp; Mortality</span>
-    <a href="index.html">Calculator</a>
-    <a href="methodology.html">Methodology</a>
-    <a href="https://github.com/aeftimia/vo2max-mortality" target="_blank" rel="noopener">GitHub</a>
+    <button class="burger" id="burger" aria-label="Toggle menu" aria-expanded="false">&#9776;</button>
+    <div class="nav-links" id="nav-links">
+      <a href="index.html">Calculator</a>
+      <a href="methodology.html">Methodology</a>
+      <a href="https://github.com/aeftimia/vo2max-mortality" target="_blank" rel="noopener">GitHub</a>
+    </div>
   </nav>
 </header>
+<script>
+  document.getElementById('burger').addEventListener('click', function() {
+    var links = document.getElementById('nav-links');
+    var open = links.classList.toggle('open');
+    this.setAttribute('aria-expanded', open);
+  });
+</script>
 
 <div class="methodology-body">
 

@@ -107,6 +107,24 @@ const Form = {
     `;
   },
 
+  updateVO2Placeholder() {
+    var ageEl = document.getElementById('age');
+    var sexEl = document.querySelector('input[name="sex"]:checked');
+    var vo2El = document.getElementById('vo2max');
+    var age = parseInt(ageEl.value, 10);
+    var sex = sexEl ? sexEl.value : null;
+    if (!age || age < 20 || age > 89 || !sex) {
+      vo2El.placeholder = 'e.g. 35';
+      return;
+    }
+    try {
+      var median = getVo2FromPercentile(age, 50, sex);
+      vo2El.placeholder = 'e.g. ' + median.toFixed(1);
+    } catch (e) {
+      vo2El.placeholder = 'e.g. 35';
+    }
+  },
+
   init() {
     this.buildCheckboxes();
     this.buildVO2Methods();
@@ -114,6 +132,12 @@ const Form = {
     document.getElementById('calculate-btn').addEventListener('click', () => this.onSubmit());
     document.getElementById('calculate-form').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.onSubmit();
+    });
+
+    // Update VO₂ max placeholder with median when age/sex change
+    document.getElementById('age').addEventListener('input', () => this.updateVO2Placeholder());
+    document.querySelectorAll('input[name="sex"]').forEach(r => {
+      r.addEventListener('change', () => this.updateVO2Placeholder());
     });
 
     // Toggle smoking: disable former if current selected and vice versa
