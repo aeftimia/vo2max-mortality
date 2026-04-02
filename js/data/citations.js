@@ -4,16 +4,6 @@
  * reference this object rather than hardcoding values.
  */
 const CITATIONS = {
-  mandsager2018: { /* DEPRECATED: archival only */
-    short: 'Mandsager 2018',
-    full: 'Mandsager K, Harb S, Cremer P, Phelan D, Nissen SE, Jaber W. ' +
-          'Association Between Cardiorespiratory Fitness and Long-term Mortality ' +
-          'Among Adults Undergoing Exercise Treadmill Testing. ' +
-          'JAMA Netw Open. 2018;1(6):e183605.',
-    doi: '10.1001/jamanetworkopen.2018.3605',
-    pmc: 'PMC6324439',
-    url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/',
-  },
   kokkinos2022: {
     short: 'Kokkinos 2022',
     full: 'Kokkinos P, et al. Cardiorespiratory Fitness and Mortality Risk Across the ' +
@@ -29,17 +19,26 @@ const CITATIONS = {
     pmc: 'PMC4919021',
     url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4919021/',
   },
+  friend2022: {
+    short: 'FRIEND 2022',
+    full: 'Kaminsky LA, et al. Updated Reference Standards for Cardiorespiratory ' +
+          'Fitness Measured with Cardiopulmonary Exercise Testing: Data from the ' +
+          'Fitness Registry and the Importance of Exercise National Database (FRIEND). ' +
+          'Mayo Clin Proc. 2022;97(2):285–293.',
+    doi: '10.1016/j.mayocp.2021.08.020',
+    url: 'https://www.mayoclinicproceedings.org/article/S0025-6196(21)00645-5/fulltext',
+  },
   ssaLifeTable: {
-    short: 'SSA Period Life Table, 2021',
+    short: 'SSA Period Life Table, 2022',
     full: 'Social Security Administration, Office of the Chief Actuary. ' +
           'Period Life Table, 2021.',
     url: 'https://www.ssa.gov/oact/STATS/table4c6.html',
   },
-  nvss2021: {
-    short: 'CDC NVSS Life Tables, 2021',
-    full: 'Arias E, Xu JQ. United States Life Tables, 2021. National Vital ' +
-          'Statistics Reports, Vol. 72, No. 12. Hyattsville, MD: NCHS. 2023.',
-    url: 'https://www.cdc.gov/nchs/data/nvsr/nvsr72/nvsr72-12.pdf',
+  nvss2022: {
+    short: 'CDC NVSS Life Tables, 2022',
+    full: 'Arias E, Xu JQ. United States Life Tables, 2022. National Vital ' +
+          'Statistics Reports, Vol. 74, No. 2. Hyattsville, MD: NCHS. 2025.',
+    url: 'https://www.cdc.gov/nchs/data/nvsr/nvsr74/nvsr74-02.pdf',
   },
   seshasai2011: {
     short: 'Seshasai 2011',
@@ -112,6 +111,12 @@ const CITATIONS = {
           'Circulation. 2010;122(2):191-225.',
     doi: '10.1161/CIR.0000000000000973',
     url: 'https://doi.org/10.1161/CIR.0000000000000973',
+  },
+  shephard2009: {
+    short: 'Shephard 2009',
+    full: 'Shephard RJ. Maximal oxygen intake and independence in old age. ' +
+          'Br J Sports Med. 2009;43(5):342-346.',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/18403414/',
   },
   smartwatch2023: {
     short: 'Smartwatch VO2max validation',

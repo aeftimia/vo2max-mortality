@@ -66,8 +66,14 @@ const Form = {
     this.showErrors(errors);
     if (errors.length > 0) return;
 
-    const result = computeMortality(inputs);
-    Results.render(result);
+    try {
+      const result = computeMortality(inputs);
+      Results.render(result);
+    } catch (e) {
+      this.showErrors(['Calculation error: ' + e.message]);
+      console.error('computeMortality failed:', e);
+      return;
+    }
 
     document.getElementById('results-section').style.display = 'block';
     document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });

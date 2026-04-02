@@ -8,7 +8,7 @@
  *  3. Normalization constant behavior
  *  4. Continuous hazard ratio computation
  *  5. Percentile lookup accuracy
- *  6. Cross-checks with Mandsager categories
+ *  6. Population-average normalization
  *  7. Sanity checks on output values
  */
 
@@ -27,8 +27,8 @@ function testContinuousModel() {
       throw new Error('FRIEND_2022_CONTINUOUS not loaded');
     }
     if (!FRIEND_2022_CONTINUOUS.normalization ||
-        !FRIEND_2022_CONTINUOUS.grids) {
-      throw new Error('Missing normalization or grid data');
+        !FRIEND_2022_CONTINUOUS.percentile_splines) {
+      throw new Error('Missing normalization or percentile_splines data');
     }
     console.log('  ✓ Data loaded successfully');
     console.log(`    Model: ${FRIEND_2022_CONTINUOUS.metadata.model}`);
