@@ -25,7 +25,7 @@ const Results = {
     document.getElementById('hero-fitness').innerHTML =
       `Your VO₂ max of <strong>${vo2max.toFixed(1)} mL/kg/min</strong> is ${pctText} among healthy US adults of your age and sex.` +
       `<br>This percentile is estimated from the FRIEND 2022 normative data (${citeLink('friend2022')}).` +
-      `<br>The calculator uses a continuous hazard model (Kokkinos 2022; HR = 0.86 per +1 MET) normalized to population life tables.`;
+      `<br>The calculator uses a continuous hazard model (${citeLink('kokkinos2022')}; HR = ${((FRIEND_2022_CONTINUOUS.metadata || {}).constants || {}).HR_per_MET || 0.86} per +1 MET) normalized to population life tables.`;
 
     const riskNote = userRiskHR > 1
       ? ` With your health conditions (combined HR ${userRiskHR.toFixed(2)}×), your personal estimate is higher.`
@@ -137,7 +137,7 @@ const Results = {
 
       const label = p === 10 ? '10th percentile' : p === 90 ? '90th percentile' : `${p}th percentile`;
       const verb = deltaQ < 0 ? 'reduce' : 'increase';
-      const avoid = deltaQ < 0 ? 'avoiding' : 'adding';
+      const avoid = deltaQ < 0 ? 'annually avoiding' : 'annually adding';
       const dirLabel = dir === 'better' ? '▲ better fitness' : '▼ worse fitness';
 
       card.innerHTML = `

@@ -64,33 +64,12 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
 <p id="primary-citation"><!-- filled by JS --></p>
 
 <h3>Study designs and data used here</h3>
-<p>The continuous model implemented in this calculator uses two complementary sources:
-<ul>
-  <li><strong>FRIEND 2022 Percentile Norms:</strong> Kaminsky LA, et al. Updated Reference Standards
-    for Cardiorespiratory Fitness Measured with Cardiopulmonary Exercise Testing: Data from the
-    Fitness Registry and the Importance of Exercise National Database (FRIEND). Mayo Clin Proc.
-    2022;97(2):285–293. DOI: 10.1016/j.mayocp.2021.08.020. The published tables report VO₂ max
-    percentiles (10th–90th, in 10% steps) stratified by decade (20–29 through 80–89) and sex;
-    these percentile curves are the basis for percentiles-to-VO₂ interpolation used by the tool.</li>
-  <li><strong>Kokkinos 2022 Hazard Ratio:</strong> Kokkinos P, et al. Cardiorespiratory Fitness and
-    Mortality Risk Across the Spectra of Age, Race, and Sex. J Am Coll Cardiol. 2022;80(6):598–609.
-    DOI: 10.1016/j.jacc.2022.05.031. This work provides a continuous adjusted hazard ratio of
-    0.86 per +1 MET (95% CI 0.85–0.87) which is applied continuously across VO₂ values
-    (MET = VO₂ / 3.5).</li>
-</ul>
-</p>
+<p>The continuous model implemented in this calculator uses two complementary sources:</p>
+<ul id="study-designs-list"><!-- filled by JS from citations.js --></ul>
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
 <h2>Data Sources</h2>
-<ul>
-  <li><strong>FRIEND 2022 Percentile Norms:</strong> Kaminsky LA, et al. <em>Updated Reference Standards
-    for Cardiorespiratory Fitness Measured with Cardiopulmonary Exercise Testing: Data from the
-    Fitness Registry and the Importance of Exercise National Database (FRIEND).</em>
-    <em>Mayo Clin Proc.</em> 2022;97(2):285–293. DOI: 10.1016/j.mayocp.2021.08.020</li>
-  <li><strong>Kokkinos 2022 Hazard Ratio:</strong> Kokkinos P, et al. <em>Cardiorespiratory Fitness and
-    Mortality Risk Across the Spectra of Age, Race, and Sex.</em>
-    <em>J Am Coll Cardiol.</em> 2022;80(6):598–609. DOI: 10.1016/j.jacc.2022.05.031</li>
-</ul>
+<ul id="data-sources-list"><!-- filled by JS from citations.js --></ul>
 
 <h3>Fitting and normalization</h3>
 <p>The model is constructed as follows:</p>
@@ -463,6 +442,37 @@ an equivalent annual mortality burden.</p>
       `<td>~1/${invRate.toLocaleString()} = ${pctRate}%</td>` +
       `<td>${sourceText}</td>`;
     reTbody.appendChild(tr);
+  }
+
+  // ── Data sources and study designs (derived from citations.js + JSON constants) ──
+  const constants = (FRIEND_2022_CONTINUOUS.metadata || {}).constants || {};
+  const hrPerMet = constants.HR_per_MET || 0.86;
+  const hrCI = constants.HR_per_MET_CI || [0.85, 0.87];
+  const metDiv = constants.MET_divisor || 3.5;
+  const vo2Floor = constants.VO2_floor || 10;
+
+  const studyDesigns = [
+    { key: 'friend2022', label: 'FRIEND 2022 Percentile Norms',
+      desc: ` The published tables report VO₂ max percentiles (10th–90th, in 10% steps) ` +
+            `stratified by decade (20–29 through 80–89) and sex; these percentile curves ` +
+            `are the basis for the percentiles-to-VO₂ interpolation used by the tool.` },
+    { key: 'kokkinos2022', label: 'Kokkinos 2022 Hazard Ratio',
+      desc: ` This work provides a continuous adjusted hazard ratio of ` +
+            `${hrPerMet} per +1 MET (95% CI ${hrCI[0]}–${hrCI[1]}) which is applied ` +
+            `continuously across VO₂ values (MET = VO₂ / ${metDiv}).` },
+  ];
+  const sdList = document.getElementById('study-designs-list');
+  for (const sd of studyDesigns) {
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>${sd.label}:</strong> ${citeRef(sd.key)}${sd.desc}`;
+    sdList.appendChild(li);
+  }
+
+  const dsList = document.getElementById('data-sources-list');
+  for (const sd of studyDesigns) {
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>${sd.label}:</strong> ${citeRef(sd.key)}`;
+    dsList.appendChild(li);
   }
 
   // ── Full reference list ──────────────────────────────────────────────────

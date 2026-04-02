@@ -63,7 +63,13 @@
     var synthetic = {
       metadata: {
         model: 'synthetic_fallback',
-        note: 'Lightweight synthetic FRIEND-like model for offline/file:// testing. For production use, run a local HTTP server (python -m http.server) or deploy via http(s).'
+        note: 'Lightweight synthetic FRIEND-like model for offline/file:// testing. For production use, run a local HTTP server (python -m http.server) or deploy via http(s).',
+        constants: {
+          HR_per_MET: 0.86,
+          HR_per_MET_CI: [0.85, 0.87],
+          MET_divisor: 3.5,
+          VO2_floor: 10.0,
+        }
       },
       normalization: normalization,
       percentile_splines: percentile_splines,

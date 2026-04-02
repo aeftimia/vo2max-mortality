@@ -210,23 +210,25 @@ function getPercentileFromVo2(age, vo2_mlkgmin, sex) {
 function getNormalizedFitnessHR(age, vo2_mlkgmin, sex, ciVariant) {
   ciVariant = ciVariant || 'central';
 
-  var HR_CENTRAL = 0.86;
-  var HR_LO = 0.85;
-  var HR_HI = 0.87;
+  // Derive HR-per-MET constants from the loaded JSON metadata (single source of truth)
+  var constants = (FRIEND_2022_CONTINUOUS.metadata || {}).constants || {};
+  var HR_CENTRAL = constants.HR_per_MET || 0.86;
+  var HR_CI = constants.HR_per_MET_CI || [0.85, 0.87];
+  var MET_DIVISOR = constants.MET_divisor || 3.5;
 
   var hr_per_met, k_variant;
   if (ciVariant === 'lo') {
-    hr_per_met = HR_LO;
+    hr_per_met = HR_CI[0];
     k_variant = 'k_lo';
   } else if (ciVariant === 'hi') {
-    hr_per_met = HR_HI;
+    hr_per_met = HR_CI[1];
     k_variant = 'k_hi';
   } else {
     hr_per_met = HR_CENTRAL;
     k_variant = 'k';
   }
 
-  var MET = vo2_mlkgmin / 3.5;
+  var MET = vo2_mlkgmin / MET_DIVISOR;
   var raw_hr = Math.pow(hr_per_met, MET);
   var k = getNormalizationConstant(age, sex, k_variant);
   return k * raw_hr;

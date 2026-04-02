@@ -510,7 +510,8 @@ def export_model(models, output_file='js/data/friend-2022-continuous.json'):
             'constants': {
                 'HR_per_MET': KOKKINOS_HR_PER_MET,
                 'HR_per_MET_CI': [KOKKINOS_HR_CI_LO, KOKKINOS_HR_CI_HI],
-                'MET_conversion': 'MET = VO2_mlkgmin / 3.5'
+                'MET_divisor': 3.5,
+                'VO2_floor': VO2_FLOOR,
             }
         },
         'normalization': {},
