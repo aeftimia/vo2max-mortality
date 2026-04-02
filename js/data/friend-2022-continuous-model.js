@@ -113,8 +113,8 @@ function getNormalizationConstant(age, sex, variant) {
 /**
  * Get VO2 max from age and percentile rank.
  *
- * Uses piecewise-quadratic spline coefficients.
- * Flat tails: percentile < 10 → value at 10; percentile > 90 → value at 90.
+ * Uses piecewise-quadratic spline coefficients spanning [0, 100].
+ * p=0 is the physiological floor (~10 mL/kg/min); p=100 mirrors the 80→90 gap.
  *
  * @param {number} age - integer age (20–89)
  * @param {number} percentile - rank 0–100
@@ -164,9 +164,9 @@ function getPercentileFromVo2(age, vo2_mlkgmin, sex) {
   var values = spline.values;
   var knots = spline.knots;
 
-  // Below 10th percentile value
+  // Below the 0th-percentile floor
   if (vo2_mlkgmin <= values[0]) return 0;
-  // Above 90th percentile value
+  // Above the 100th-percentile ceiling
   if (vo2_mlkgmin >= values[values.length - 1]) return 100;
 
   // Search through spline pieces

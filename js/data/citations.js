@@ -112,6 +112,12 @@ const CITATIONS = {
     doi: '10.1161/CIR.0000000000000973',
     url: 'https://doi.org/10.1161/CIR.0000000000000973',
   },
+  shephard2009: {
+    short: 'Shephard 2009',
+    full: 'Shephard RJ. Maximal oxygen intake and independence in old age. ' +
+          'Br J Sports Med. 2009;43(5):342-346.',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/18403414/',
+  },
   smartwatch2023: {
     short: 'Smartwatch VO2max validation',
     full: 'Carrier B, Barrios B, Jolley BD, Navalta JW. Validity and ' +

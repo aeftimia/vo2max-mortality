@@ -67,6 +67,15 @@ FRIEND_2022_DATA = {
 # Age bin edges
 AGE_BINS = [(20, 30), (30, 40), (40, 50), (50, 60), (60, 70), (70, 80), (80, 90)]
 
+# Physiological VO2 max floor (mL/kg/min) — the lowest ambulatory/survivable
+# level, used as the 0th-percentile value at all ages.
+# Source: Shephard RJ. Br J Sports Med. 2009;43(5):342-346.
+#   Independence threshold ~15-18 ml/kg/min; clinical floor ~10-12 ml/kg/min.
+# See also: Mancini DM et al. Circulation. 1991. (peak VO2 <=14 as high-risk
+#   cutoff in heart failure).
+# We use 10 ml/kg/min as the hard floor (roughly normal walking pace).
+VO2_FLOOR = 10.0
+
 # ============================================================================
 # SECTION 2: Kokkinos 2022 Hazard Ratio Constants
 # ============================================================================
@@ -353,8 +362,11 @@ def build_full_model(sex):
     fit a monotone histospline across the 7 age bins.
 
     Stage 2 (percentile direction): For each integer age 20-89, evaluate the
-    9 age histosplines to get VO2 at percentiles 10,20,...,90, then fit a
-    monotone quadratic spline with flat tails.
+    9 age histosplines to get VO2 at percentiles 10,20,...,90, then extend to
+    0th and 100th percentile with physiological bounds:
+      - p=0:   VO2_FLOOR (hard physiological minimum, ~10 mL/kg/min)
+      - p=100: vo2(90) + (vo2(90) - vo2(80))  (mirror the 80->90 gap)
+    Then fit a monotone quadratic spline through all 11 knots [0,10,...,90,100].
 
     Returns:
         dict with:
@@ -371,17 +383,30 @@ def build_full_model(sex):
 
     # Stage 2: for each integer age, build percentile spline
     percentile_splines = {}
-    p_knots = np.array(sorted(percentiles_data.keys()))  # [10, 20, ..., 90]
+    p_knots_friend = np.array(sorted(percentiles_data.keys()))  # [10, 20, ..., 90]
 
     for age in range(20, 90):
         # Evaluate each age histospline at midpoint of the year
-        vo2_at_percentiles = np.array([
+        vo2_at_friend = np.array([
             eval_quadratic_spline(age_splines[p], float(age) + 0.5)
-            for p in p_knots
+            for p in p_knots_friend
         ])
 
-        # Fit monotone quadratic spline through (percentile, vo2) points
-        pct_spline = fit_monotone_quadratic_spline(p_knots, vo2_at_percentiles)
+        # Extend to 0th and 100th percentile
+        vo2_p0 = VO2_FLOOR
+        vo2_p80 = vo2_at_friend[-2]  # 80th percentile
+        vo2_p90 = vo2_at_friend[-1]  # 90th percentile
+        vo2_p100 = vo2_p90 + (vo2_p90 - vo2_p80)  # mirror the 80->90 gap
+
+        # Ensure p0 < p10 (floor must be below the 10th percentile)
+        vo2_p0 = min(vo2_p0, vo2_at_friend[0] - 0.1)
+
+        # Build full knot vector [0, 10, 20, ..., 90, 100]
+        p_knots = np.concatenate([[0], p_knots_friend, [100]])
+        vo2_values = np.concatenate([[vo2_p0], vo2_at_friend, [vo2_p100]])
+
+        # Fit monotone quadratic spline through all 11 points
+        pct_spline = fit_monotone_quadratic_spline(p_knots, vo2_values)
         percentile_splines[age] = pct_spline
 
     return {
@@ -393,7 +418,8 @@ def build_full_model(sex):
 def get_vo2(model, age, percentile):
     """
     Look up VO2 from the model at a given age and percentile.
-    Flat tails: percentile < 10 -> value at 10; percentile > 90 -> value at 90.
+    Percentile is clamped to [0, 100]. Outside the spline knot range,
+    flat tails at the endpoint values are used (but knots now span 0-100).
     """
     age = max(20, min(89, age))
     return eval_quadratic_spline(model['percentile_splines'][age], percentile)
@@ -409,26 +435,20 @@ def compute_normalization_constant(model, age, hr_per_met=KOKKINOS_HR_PER_MET):
 
     E[HR_raw] = (1/100) * integral_0^100 hr_per_met^(VO2(p)/3.5) dp
 
-    The VO2(p) spline is piecewise quadratic with flat tails, so we integrate
+    The VO2(p) spline is piecewise quadratic spanning [0, 100], so we integrate
     each piece separately using 16-point GL (exact to ~15 digits for smooth
     integrands on each piece).
     """
     pct_spline = model['percentile_splines'][age]
     knots = pct_spline['knots']
     coeffs = pct_spline['coeffs']
-    values = pct_spline['values']
 
     # GL nodes and weights
     gl_nodes, gl_weights = np.polynomial.legendre.leggauss(16)
 
     total = 0.0
 
-    # Left flat tail [0, 10]: constant VO2 = values[0]
-    vo2_lo = values[0]
-    hr_lo = hr_per_met ** (vo2_lo / 3.5)
-    total += hr_lo * (knots[0] - 0)
-
-    # Interior pieces
+    # All pieces (knots now span 0-100, no separate flat tails)
     for i in range(len(coeffs)):
         a, b, c = coeffs[i]
         x_lo = knots[i]
@@ -445,11 +465,6 @@ def compute_normalization_constant(model, age, hr_per_met=KOKKINOS_HR_PER_MET):
             piece_sum += weight * hr
 
         total += piece_sum * half
-
-    # Right flat tail [90, 100]: constant VO2 = values[-1]
-    vo2_hi = values[-1]
-    hr_hi = hr_per_met ** (vo2_hi / 3.5)
-    total += hr_hi * (100 - knots[-1])
 
     expected_hr = total / 100.0
     return 1.0 / expected_hr

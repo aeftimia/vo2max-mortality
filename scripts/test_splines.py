@@ -372,11 +372,11 @@ class TestFullModel:
         print("  PASS VO2 decreases with age (all percentiles, both sexes)")
 
     def test_vo2_increases_with_percentile(self):
-        """VO2 must increase with percentile at fixed age."""
+        """VO2 must increase with percentile at fixed age (full 0-100 range)."""
         for sex in ['male', 'female']:
             model = build_full_model(sex)
             for age in range(20, 90):
-                pcts = np.linspace(1, 99, 200)
+                pcts = np.linspace(0, 100, 500)
                 vals = [get_vo2(model, age, p) for p in pcts]
                 diffs = np.diff(vals)
                 assert np.all(diffs >= -1e-8), \
@@ -384,24 +384,39 @@ class TestFullModel:
 
         print("  PASS VO2 increases with percentile (all ages, both sexes)")
 
-    def test_flat_tails_in_percentile(self):
-        """Below 10th and above 90th percentile, VO2 must be constant."""
+    def test_tail_extrapolation(self):
+        """p=0 should be at VO2 floor; p=100 should mirror 80->90 gap; tails interpolated."""
+        from fit_friend_splines import VO2_FLOOR
+
         for sex in ['male', 'female']:
             model = build_full_model(sex)
             for age in [30, 50, 70]:
-                v10 = get_vo2(model, age, 10)
+                v0 = get_vo2(model, age, 0)
                 v5 = get_vo2(model, age, 5)
-                v1 = get_vo2(model, age, 1)
-                assert abs(v5 - v10) < 1e-10, f"{sex} age {age}: p5 != p10"
-                assert abs(v1 - v10) < 1e-10, f"{sex} age {age}: p1 != p10"
-
+                v10 = get_vo2(model, age, 10)
+                v80 = get_vo2(model, age, 80)
                 v90 = get_vo2(model, age, 90)
                 v95 = get_vo2(model, age, 95)
-                v99 = get_vo2(model, age, 99)
-                assert abs(v95 - v90) < 1e-10, f"{sex} age {age}: p95 != p90"
-                assert abs(v99 - v90) < 1e-10, f"{sex} age {age}: p99 != p90"
+                v100 = get_vo2(model, age, 100)
 
-        print("  PASS flat tails in percentile direction")
+                # p=0 should be at or near the VO2 floor
+                assert v0 <= VO2_FLOOR + 0.1, \
+                    f"{sex} age {age}: p0={v0} not at floor {VO2_FLOOR}"
+
+                # Tails should NOT be flat — v5 should be between v0 and v10
+                assert v0 < v5 < v10 + 0.01, \
+                    f"{sex} age {age}: p5={v5} not between p0={v0} and p10={v10}"
+
+                # p=100 should be approximately p90 + (p90 - p80)
+                expected_p100 = v90 + (v90 - v80)
+                assert abs(v100 - expected_p100) < 0.5, \
+                    f"{sex} age {age}: p100={v100}, expected ~{expected_p100}"
+
+                # v95 should be between v90 and v100
+                assert v90 < v95 < v100 + 0.01, \
+                    f"{sex} age {age}: p95={v95} not between p90={v90} and p100={v100}"
+
+        print("  PASS physiological tail extrapolation")
 
     def test_plausible_values(self):
         """Spot-check that VO2 values are physiologically plausible."""

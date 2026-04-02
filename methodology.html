@@ -104,10 +104,18 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
         piecewise-quadratic spline is fitted such that the integral over each decade bin exactly
         reproduces the published value. This is more faithful to how the FRIEND data is reported.
         Monotonicity (VO₂ decreasing with age) is enforced.</li>
-      <li><strong>Percentile direction — monotone quadratic spline with flat tails:</strong> At each
-        integer age, the 9 percentile values (10th–90th) from the age histosplines are interpolated
-        with a C¹ monotone quadratic spline. Below the 10th percentile and above the 90th, the spline
-        extrapolates as a constant (flat tails), reflecting the absence of data in the extremes.</li>
+      <li><strong>Percentile direction — monotone quadratic spline with physiological bounds:</strong> At each
+        integer age, the 9 percentile values (10th–90th) from the age histosplines are extended to the
+        0th and 100th percentile and interpolated with a C¹ monotone quadratic spline across all 11
+        knots [0, 10, 20, …, 90, 100]:
+        <ul>
+          <li><strong>0th percentile:</strong> Set to ~10 mL/kg/min, the hard physiological floor
+            for ambulatory humans (${citeLink('shephard2009', 'Shephard 2009')}; clinical heart failure
+            literature places the survivable minimum at ~10–12 mL/kg/min).</li>
+          <li><strong>100th percentile:</strong> Extrapolated by mirroring the 80th→90th gap:
+            VO₂(100) = VO₂(90) + [VO₂(90) − VO₂(80)].</li>
+        </ul>
+      </li>
       <li>Both directions guarantee: monotonicity, C¹ continuity, and exact polynomial integration
         (no numerical quadrature needed for the VO₂ spline itself).</li>
     </ul>
@@ -192,8 +200,8 @@ and sex \(s\). This is the average annual mortality for the US population.</p>
 <h3>Step 2 — Fitness percentile to VO₂ max conversion</h3>
 <p>For a user with VO₂ max \(\text{VO}_2\) mL/kg/min, we estimate their fitness percentile \(p\)
 (relative rank among healthy US adults of the same age and sex) using the inverse of the fitted
-${citeLink('friend2022')} piecewise-quadratic percentile splines. Below the 10th and above the
-90th percentile, the spline extrapolates as a constant (flat tails).</p>
+${citeLink('friend2022')} piecewise-quadratic percentile splines. The spline covers the full 0–100
+range with physiological bounds at the extremes (${citeLink('shephard2009', 'Shephard 2009')}).</p>
 
 <h3>Step 3 — Continuous fitness hazard ratio</h3>
 <p>The ${citeLink('kokkinos2022')} hazard ratio is \(\mathrm{HR} = 0.86^{\text{MET}}\), where
@@ -342,10 +350,11 @@ an equivalent annual mortality burden.</p>
 
   <li><strong>Spline interpolation and extrapolation.</strong> The FRIEND 2022 percentile values are
     fitted with piecewise-quadratic splines: a monotone histospline (bin-average preserving) in
-    the age direction and a monotone quadratic spline with flat tails in the percentile direction.
+    the age direction and a monotone quadratic spline in the percentile direction.
     Interpolation between published percentiles (10th–90th) is accurate to within ~0.5 mL/kg/min.
-    Below the 10th and above the 90th percentile, the spline extrapolates as a constant (flat tails),
-    which is conservative but may underestimate VO₂ variation in the extremes.</li>
+    Below the 10th percentile, the spline extrapolates to a physiological floor (~10 mL/kg/min);
+    above the 90th, it mirrors the 80th→90th gap. These tail assumptions are more realistic than
+    flat extrapolation but remain uncertain — the FRIEND data does not cover the extremes.</li>
 
   <li><strong>Risk factor independence.</strong> Multiplying hazard ratios assumes each risk factor's
     effect is independent. Many conditions interact synergistically (e.g., diabetes + hypertension),
