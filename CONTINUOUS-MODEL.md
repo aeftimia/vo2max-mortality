@@ -15,13 +15,12 @@ This provides higher resolution, smoother transitions, and better scientific acc
 
 ### ✅ What Improved
 - **Continuous hazard function:** Replace discrete categories with smooth spline interpolation
-- **Better percentile matching:** Use FRIEND 2022 norms instead of Mandsager percentiles for display
+- **Better percentile matching:** Use FRIEND 2022 norms for percentile display
 - **Precise normalization:** Integral-based population-mean normalization (E[HR] = 1.0 exact)
 - **Robust CI propagation:** Uncertainty bounds from Kokkinos 95% CI (0.85–0.87 per MET)
 
 ### ✅ What's Preserved
 - All existing output fields (`computeMortality()` result object)
-- Mandsager category display (for reference)
 - Risk factor multiplication logic
 - Life expectancy calculations
 - SSA 2022 life tables
@@ -177,28 +176,11 @@ testContinuousModel()
 
 **Age 45, male, VO₂ 42 mL/kg/min:**
 - Continuous model: HR = 0.734, mortality ≈ 0.48% annually
-- Mandsager category: "Above Average" (for reference)
 - FRIEND percentile: ~60th
 
 **Age 70, female, VO₂ 25 mL/kg/min:**
 - Continuous model: HR ≈ 0.92, mortality ≈ 1.2% annually
-- Mandsager category: "Average"
 - FRIEND percentile: ~50th
-
-### Cross-Validation with Mandsager (archival)
-
-The project previously used Mandsager et al. (2018) five-category hazards for mortality. Those outputs are retained for archival cross-checks only and are not used in the calculator's mortality computations. Use FRIEND 2022 percentiles + Kokkinos 2022 continuous HR for current results.
-
-
-| Fitness Level | VO₂ Range (age 40M) | Continuous HR | Mandsager HR |
-|---|---|---|---|
-| Low | <35 | 1.2–1.5 | 1.0 |
-| Below Average | 35–38 | 0.8–1.0 | 0.71 |
-| Above Average | 38–45 | 0.4–0.6 | 0.50 |
-| High | 45–50 | 0.3–0.4 | 0.39 |
-| Elite | >50 | <0.3 | 0.20 |
-
-Results align well with categorical expectations.
 
 ---
 
@@ -232,7 +214,7 @@ Results align well with categorical expectations.
 ### Rollback
 If issues arise, the old categorical model can be restored:
 1. Remove new script imports from `index.html`
-2. Revert `engine.js` to use `classifyMandsager()` directly
+2. Revert `engine.js` to use legacy categorical model directly
 3. All other changes are additive and won't interfere
 
 ---
@@ -269,9 +251,6 @@ Kokkinos P, Al-Mallah MH, Desai D, et al. Cardiorespiratory Fitness and Mortalit
 
 **SSA Life Tables:**
 Social Security Administration. Period Life Table 2021. https://www.ssa.gov/oact/STATS/table4c6.html
-
-**Original Categorical Model:**
-Mandsager K, Rel-Beely A, Balady GJ, et al. Association Between Cardiorespiratory Fitness and Long-term Mortality Among Adults Undergoing Exercise Treadmill Testing. *JAMA Netw Open.* 2018;1(6):e183605. DOI: 10.1001/jamanetworkopen.2018.3605
 
 ---
 

@@ -5,64 +5,77 @@
   }
 
   const dataUrl = 'js/data/friend-2022-continuous.json';
-  
+
   function handleData(data) {
     Object.assign(window.FRIEND_2022_CONTINUOUS, data);
     console.log('✓ FRIEND 2022 continuous model data loaded');
     console.log('  Metadata:', data.metadata);
-    console.log('  Sexes:', Object.keys(data.grids || {}));
+    console.log('  Sexes:', Object.keys(data.percentile_splines || data.grids || {}));
   }
 
   function buildSyntheticFRIEND() {
     console.log('Building synthetic FRIEND-like model for offline/file:// use...');
-    const sexes = ['male','female'];
-    const grids = { male: {}, female: {} };
-    const normalization = { male: {}, female: {} };
+    var sexes = ['male','female'];
+    var normalization = { male: {}, female: {} };
+    var percentile_splines = { male: {}, female: {} };
 
-    // Simple synthetic percentile grids: percentiles 1..99, ages 20..89
-    for (const sex of sexes) {
-      for (let age = 20; age <= 89; age++) {
-        // median VO2 decreases modestly with age
-        const median = (sex === 'male' ? 46 : 36) - 0.12 * (age - 20);
-        const spread = (sex === 'male' ? 18 : 16); // approx distance between p1 and p99
-        const pmap = {};
-        for (let p = 1; p <= 99; p++) {
-          // linear percentile mapping around median
-          const vo2 = median + ((p - 50) / 49) * (spread / 2);
-          pmap[p] = Math.round(vo2 * 100) / 100;
-        }
-        grids[sex][age] = pmap;
+    for (var s = 0; s < sexes.length; s++) {
+      var sex = sexes[s];
+      for (var age = 20; age <= 89; age++) {
+        // Simple linear percentile model for fallback
+        var median = (sex === 'male' ? 46 : 36) - 0.12 * (age - 20);
+        var spread = (sex === 'male' ? 18 : 16);
+        var p10 = median - spread / 2;
+        var p90 = median + spread / 2;
 
-        // compute normalization k so expected HR over percentiles is 1.0
-        // approximate integral by averaging p=1..99
-        let acc = 0;
-        for (let p = 1; p <= 99; p++) {
-          const vo2 = pmap[p];
-          const MET = vo2 / 3.5;
-          acc += Math.pow(0.86, MET);
+        // Build a 2-piece linear spline [10, 50, 90]
+        var knots = [10, 50, 90];
+        var values = [p10, median, p90];
+        var coeffs = [];
+        for (var i = 0; i < knots.length - 1; i++) {
+          var h = knots[i + 1] - knots[i];
+          var slope = (values[i + 1] - values[i]) / h;
+          coeffs.push([0.0, slope, values[i]]);
         }
-        const avg = acc / 99;
-        normalization[sex][age + 0.0] = 1.0 / avg;
+        percentile_splines[sex][String(age)] = {
+          knots: knots,
+          coeffs: coeffs,
+          values: values,
+        };
+
+        // Approximate normalization
+        var acc = 0;
+        for (var p = 1; p <= 99; p++) {
+          var frac = (p - 10) / 80;
+          frac = Math.max(0, Math.min(1, frac));
+          var vo2 = p10 + frac * (p90 - p10);
+          acc += Math.pow(0.86, vo2 / 3.5);
+        }
+        var avg = acc / 99;
+        normalization[sex][String(age)] = {
+          k: 1.0 / avg,
+          k_lo: 1.0 / avg,  // approximate
+          k_hi: 1.0 / avg,
+        };
       }
     }
 
-    const synthetic = {
-      metadata: { 
-        model: 'synthetic_fallback', 
-        note: 'Lightweight synthetic FRIEND-like model for offline/file:// testing. For production use, run a local HTTP server (python -m http.server) or deploy via http(s).' 
+    var synthetic = {
+      metadata: {
+        model: 'synthetic_fallback',
+        note: 'Lightweight synthetic FRIEND-like model for offline/file:// testing. For production use, run a local HTTP server (python -m http.server) or deploy via http(s).'
       },
-      normalization,
-      grids,
+      normalization: normalization,
+      percentile_splines: percentile_splines,
     };
 
     handleData(synthetic);
   }
 
   // Detect if running on file:// protocol
-  const isFileProtocol = window.location.protocol === 'file:';
+  var isFileProtocol = window.location.protocol === 'file:';
 
   if (isFileProtocol) {
-    // Skip fetch entirely on file://; use synthetic or embedded data
     console.log('File protocol detected; skipping fetch. Using embedded or synthetic FRIEND model.');
     if (window.FRIEND_2022_EMBED) {
       console.log('Using FRIEND_2022_EMBED from index.html');
@@ -74,10 +87,10 @@
   }
 
   // On http(s), attempt fetch
-  fetch(dataUrl).then(response => {
-    if (!response.ok) throw new Error(`Failed to load FRIEND 2022 data: ${response.statusText}`);
+  fetch(dataUrl).then(function(response) {
+    if (!response.ok) throw new Error('Failed to load FRIEND 2022 data: ' + response.statusText);
     return response.json();
-  }).then(handleData).catch(error => {
+  }).then(handleData).catch(function(error) {
     console.warn('Fetch failed on http(s); falling back to synthetic model. Error:', error.message);
     buildSyntheticFRIEND();
   });

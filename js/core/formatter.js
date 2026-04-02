@@ -37,13 +37,24 @@ function fmtEquiv(n) {
 }
 
 /**
- * Format life expectancy delta in years.
+ * Format life expectancy delta in years with +/- sign (no sign when exactly 0).
  */
 function fmtYears(dy) {
-  const sign = dy >= 0 ? '+' : '';
   const absY = Math.abs(dy);
-  if (absY < 0.1) return sign + (dy * 12).toFixed(1) + ' months';
+  const sign = dy > 0 ? '+' : dy < 0 ? '−' : '';
+  if (absY < 0.1) {
+    const absMonths = (absY * 12).toFixed(1);
+    return sign + absMonths + ' months';
+  }
   return sign + absY.toFixed(1) + ' year' + (absY !== 1 ? 's' : '');
+}
+
+/**
+ * Format absolute life expectancy in years (no sign).
+ */
+function fmtAbsYears(y) {
+  if (y < 0.1) return (y * 12).toFixed(1) + ' months';
+  return y.toFixed(1);
 }
 
 /**

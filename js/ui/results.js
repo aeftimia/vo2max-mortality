@@ -40,7 +40,7 @@ const Results = {
 
   // ── Mortality table ─────────────────────────────────────────────────────
   renderTable(result) {
-    // Use FRIEND percentiles display rather than Mandsager bins
+    // FRIEND percentile bands for display
     const cats = ['p90', 'p80', 'p70', 'p60', 'p50', 'p40', 'p30', 'p20', 'p10'];
 
     // Category bounds are no longer used for computation; show FRIEND percentile bands for display
@@ -64,11 +64,9 @@ const Results = {
       const q = result.qPop * hr * result.userRiskHR;
 
       // Compute CI range for this percentile using Kokkinos 95% CI (0.85–0.87 per MET)
-      const MET = repVo2 / 3.5;
-      const k = getNormalizationConstant(result.age, result.sex);
-      const k_margin = k * 0.01;  // small margin for spline fit uncertainty
-      const hrLo = (k - k_margin) * Math.pow(0.85, MET);
-      const hrHi = (k + k_margin) * Math.pow(0.87, MET);
+      // Each CI bound uses its own normalization constant (precomputed)
+      const hrLo = getNormalizedFitnessHR(result.age, repVo2, result.sex, 'lo');
+      const hrHi = getNormalizedFitnessHR(result.age, repVo2, result.sex, 'hi');
       const qLo = result.qPop * hrLo * result.userRiskHR;
       const qHi = result.qPop * hrHi * result.userRiskHR;
       const ciTooltip = `Plausible range: ${fmtPercent(qLo)} – ${fmtPercent(qHi)}/yr (HR 95% CIs)`;
@@ -113,11 +111,9 @@ const Results = {
       const deltaYears = leTarget - leCurrent;
 
       // Compute CI plausible range for deltaQ
-      const MET = vo2 / 3.5;
-      const k = getNormalizationConstant(age, sex);
-      const k_margin = k * 0.01;
-      const hrTargetLo = (k - k_margin) * Math.pow(0.85, MET);
-      const hrTargetHi = (k + k_margin) * Math.pow(0.87, MET);
+      // Each CI bound uses its own normalization constant (precomputed)
+      const hrTargetLo = getNormalizedFitnessHR(age, vo2, sex, 'lo');
+      const hrTargetHi = getNormalizedFitnessHR(age, vo2, sex, 'hi');
       const qTargetLo = qPop * hrTargetLo * userRiskHR;
       const qTargetHi = qPop * hrTargetHi * userRiskHR;
       const deltaQLo = qTargetLo - qUser;
@@ -179,16 +175,16 @@ const Results = {
     
     el.innerHTML = `
       Your current fitness level implies a remaining life expectancy of approximately
-      <strong>${fmtYears(leCurrent)}</strong> years (vs. population average of 
-      <strong>${fmtYears(lePopulation)}</strong> years).
+      <strong>${fmtAbsYears(leCurrent)}</strong> years (vs. population average of
+      <strong>${fmtAbsYears(lePopulation)}</strong> years).
       <br><br>
       <strong>Fitness impact on life expectancy:</strong><br>
       If you improved to the <strong>90th percentile</strong> (top decile): <strong>${fmtYears(leTop - leCurrent)}</strong>.<br>
       If you declined to the <strong>10th percentile</strong> (bottom decile): <strong>${fmtYears(leBottom - leCurrent)}</strong>.
       <br><br>
       <span class="small muted">(Based on ${citeLink('ssaLifeTable', 'SSA 2022 life table')} 
-      integration with continuous FRIEND+Kokkinos fitness model. Plausible range from HR 95% CI: ${fmtYears(leUserRange.lo)} to 
-      ${fmtYears(leUserRange.hi)} years.)</span>
+      integration with continuous FRIEND+Kokkinos fitness model. Plausible range from HR 95% CI: ${fmtAbsYears(leUserRange.lo)} to
+      ${fmtAbsYears(leUserRange.hi)} years.)</span>
     `;
   },
 

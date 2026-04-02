@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VO₂ Max Mortality Calculator</title>
-  <meta name="description" content="Evidence-based calculator showing how cardiorespiratory fitness (VO₂ max) affects all-cause mortality risk using a continuous FRIEND+Kokkinos model normalized to SSA life tables. Mandsager categories are shown for historical reference.">
+  <meta name="description" content="Evidence-based calculator showing how cardiorespiratory fitness (VO₂ max) affects all-cause mortality risk using a continuous FRIEND+Kokkinos model normalized to SSA life tables.">
   <link rel="stylesheet" href="css/main.css">
   <!-- Chart.js v4.4.4 -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -24,8 +24,8 @@
   <div class="page-intro">
     <h1>VO₂ Max Mortality Calculator</h1>
     <p>Estimates how your cardiorespiratory fitness level affects annual mortality risk,
-       and expresses the difference in everyday risk units. Uses continuous FRIEND 2022 percentiles and Kokkinos 2022 hazard ratios (0.86 per MET); Mandsager et al. (2018) categories remain for historical comparison.
-       hazard ratios anchored to US life tables. <a href="methodology.html">See full methodology →</a></p>
+       and expresses the difference in everyday risk units. Uses continuous FRIEND 2022 percentiles and Kokkinos 2022
+       hazard ratios (0.86 per MET) anchored to US life tables. <a href="methodology.html">See full methodology →</a></p>
   </div>
 
   <!-- ── Input card ──────────────────────────────────────────────────────── -->
@@ -63,7 +63,7 @@
       <summary>Health conditions (optional — adjusts your baseline mortality)</summary>
       <p style="font-size:0.8rem;color:#64748b;margin:0 0 0.8rem;">
         These shift your personal annual mortality estimate using published hazard ratios.
-        They do <em>not</em> affect the fitness category definitions; the mortality computation uses the continuous FRIEND+Kokkinos model rather than Mandsager HRs.
+        They do <em>not</em> affect the fitness category definitions; the mortality computation uses the continuous FRIEND+Kokkinos model.
         Applied multiplicatively (independence assumed; see <a href="methodology.html">methodology</a>).
       </p>
       <div class="checkbox-group" id="risk-factor-checkboxes">
@@ -110,7 +110,7 @@
         </table>
       </div>
       <p class="small muted mt-1">
-        * VO₂ max category boundaries are shown for historical reference (Mandsager 2018). The calculator's mortality computations use the continuous FRIEND 2022 + Kokkinos 2022 model described in methodology; category boundaries are displayed for user context only. Hover over any risk equivalent number below to see its plausible range.
+        * Mortality computed using the continuous FRIEND 2022 + Kokkinos 2022 model described in methodology. Hover over any risk equivalent number below to see its plausible range.
       </p>
     </div>
 
@@ -145,8 +145,7 @@
       <h2>Important caveats</h2>
       <ul class="caveat-list">
         <li id="caveat-cohort"><strong>Clinical cohort bias.</strong>
-          <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/" target="_blank" rel="noopener">Mandsager et al.</a>
-          studied patients referred for exercise treadmill testing — a sicker-than-average
+          The underlying studies included patients referred for exercise treadmill testing — a sicker-than-average
           population. We use only the <em>ratios</em> (hazard ratios) between fitness levels,
           anchored to general-population life tables. Whether this over- or under-estimates
           the true benefit depends on whether fitness-related mortality risk is multiplicative
@@ -162,12 +161,12 @@
         <li><strong>Independence assumption.</strong> Risk factors are applied multiplicatively,
           assuming independence. Real interactions (e.g., diabetes + CAD) are often synergistic,
           so combined risk may be overestimated or underestimated.</li>
-        <li><strong>Age-constant HRs.</strong> Mandsager HRs are averaged across a wide age range
+        <li><strong>Age-constant HRs.</strong> Kokkinos HRs are averaged across a wide age range
           and applied uniformly here. Fitness benefits may vary by age.</li>
         <li><strong>VO₂ max measurement error.</strong> Field estimates (wearables, Cooper test)
           carry ±5–15 mL/kg/min uncertainty, which can shift category classification.</li>
-        <li><strong>Population generalizability.</strong> The Mandsager cohort was predominantly
-          white, middle-aged, Cleveland Clinic patients. Results may differ in other populations.</li>
+        <li><strong>Population generalizability.</strong> The underlying study cohorts were predominantly
+          white, middle-aged clinical patients. Results may differ in other populations.</li>
         <li><strong>Not medical advice.</strong> This tool is for educational purposes only.
           Consult your physician before making changes to exercise or health decisions.</li>
       </ul>
@@ -188,7 +187,6 @@
 <!-- Data files -->
 <script src="js/data/citations.js"></script>
 <script src="js/data/ssa-life-tables.js"></script>
-<!-- mandsager.js removed from main bundle (legacy) -->
 <!-- friend-registry.js (FRIEND 2015) removed; using friend-2022 continuous data -->
 <script src="js/data/friend-2022-loader.js"></script>
 <script src="js/data/friend-2022-continuous-model.js"></script>

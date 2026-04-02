@@ -38,11 +38,8 @@
  *
  * Dependencies (must be loaded before this file):
  *   ssa-life-tables.js               → getQx(), lifeExpectancy()
- *   (legacy) mandsager.js            → legacy category helpers (no longer required)
- *                                      classifyMandsager(), getCategoryBounds()
  *   friend-2022-continuous-model.js  → getNormalizedFitnessHR(), getPercentileFromVo2(), getVo2FromPercentile(), getNormalizationConstant()
  *   friend-2022-loader.js            → loads friend-2022-continuous.json
- *   friend-2022-continuous-model.js  → getNormalizedFitnessHR(), getPercentileFromVo2()
  *   risk-factors.js                  → computeRiskHR(), RISK_EQUIVALENTS
  */
 
@@ -88,23 +85,20 @@ function computeMortality(inputs) {
     ? Math.max(1, Math.min(99, Math.round(friendPercentile)))
     : null;
 
-  // ── Step 6: Continuous-model outputs (legacy categorical outputs removed) ───
-  // The calculator no longer uses Mandsager categories for computation or display.
+  // ── Step 6: Continuous-model outputs ───────────────────────────────────────
   // Compute CI-propagated user ranges and life expectancy under the continuous model.
 
-  // For continuous model: use CI from Kokkinos (HR = 0.86, CI 0.85-0.87 per MET)
-  const MET = vo2max / 3.5;
-  const HR_LO = Math.pow(0.85, MET);
-  const HR_HI = Math.pow(0.87, MET);
-
-  // k-constant and small spline-fit margin
-  const k = getNormalizationConstant(age, sex);
-  const k_margin = k * 0.01;
+  // Plausible range from Kokkinos CI (HR = 0.86, 95% CI 0.85–0.87 per MET).
+  // Each CI bound uses its own normalization constant so population-avg HR = 1.0
+  // is preserved at every CI level.
+  const fitnessHR_lo = getNormalizedFitnessHR(age, vo2max, sex, 'lo');
+  const fitnessHR_hi = getNormalizedFitnessHR(age, vo2max, sex, 'hi');
 
   // User's fitness HR plausible range (from Kokkinos CI)
+  // lo/hi are swapped: lower HR-per-MET (0.85) = more protective = lower mortality
   const qUserRange = {
-    lo: qPop * (k - k_margin) * HR_LO * userRiskHR,
-    hi: qPop * (k + k_margin) * HR_HI * userRiskHR,
+    lo: qPop * fitnessHR_lo * userRiskHR,
+    hi: qPop * fitnessHR_hi * userRiskHR,
   };
 
   // Life expectancy: population and current user

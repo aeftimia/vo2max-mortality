@@ -4,16 +4,6 @@
  * reference this object rather than hardcoding values.
  */
 const CITATIONS = {
-  mandsager2018: { /* DEPRECATED: archival only */
-    short: 'Mandsager 2018',
-    full: 'Mandsager K, Harb S, Cremer P, Phelan D, Nissen SE, Jaber W. ' +
-          'Association Between Cardiorespiratory Fitness and Long-term Mortality ' +
-          'Among Adults Undergoing Exercise Treadmill Testing. ' +
-          'JAMA Netw Open. 2018;1(6):e183605.',
-    doi: '10.1001/jamanetworkopen.2018.3605',
-    pmc: 'PMC6324439',
-    url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/',
-  },
   kokkinos2022: {
     short: 'Kokkinos 2022',
     full: 'Kokkinos P, et al. Cardiorespiratory Fitness and Mortality Risk Across the ' +

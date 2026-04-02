@@ -8,8 +8,8 @@ An open-source static website that estimates how cardiorespiratory fitness (VO�
 
 Given your age, sex, VO₂ max, and any relevant health conditions, the calculator:
 
-1. Classifies your fitness level using FRIEND 2022 percentile norms and estimates mortality using a continuous FRIEND+Kokkinos model (FRIEND 2022 percentiles + Kokkinos 2022 HR = 0.86 per +1 MET).
-2. Anchors population-average mortality to the SSA period life tables via an integral normalization so the expected fitness hazard equals 1.0.
+1. Classifies your fitness level using FRIEND 2022 percentile norms and estimates mortality using a continuous FRIEND+Kokkinos model (FRIEND 2022 percentiles + Kokkinos 2022 HR = 0.86 per +1 MET). VO₂ max is interpolated using monotone quadratic histosplines (age direction, bin-average preserving) and monotone quadratic splines with flat tails (percentile direction).
+2. Anchors population-average mortality to the SSA period life tables via an integral normalization so the expected fitness hazard equals 1.0. Separate normalization constants are precomputed for the central HR estimate and each CI bound (0.85, 0.87).
 3. Adjusts for health conditions using HRs from large published studies
 4. Shows excess mortality from moving between fitness percentiles or deciles, expressed as equivalent annual risky activities
 
@@ -17,9 +17,9 @@ Given your age, sex, VO₂ max, and any relevant health conditions, the calculat
 
 | Source | Used for |
 |--------|----------|
-| Mandsager et al. 2018 (JAMA Network Open) | Hazard ratios & VO₂ max category boundaries |
+| Kokkinos et al. 2022 (J Am Coll Cardiol) | Continuous hazard ratio (0.86 per +1 MET) |
+| FRIEND 2022 (Mayo Clin Proc) | Age/sex-specific VO₂ max percentile norms |
 | SSA Period Life Table 2021 | Population baseline mortality |
-| FRIEND Registry (Mayo Clin Proc 2015) | Peer comparison percentiles (display only) |
 | Multiple large cohort studies | Risk factor hazard ratios |
 
 See [methodology.html](methodology.html) for the full mathematical derivation, all citations, and limitations.
@@ -57,7 +57,7 @@ Key sanity checks:
 Contributions welcome, especially:
 - Replacing the interpolated SSA life table with exact integer-age values from the published table
 - Adding additional well-cited risk factors (with source)
-- Improving VO₂ max boundary data if Mandsager Table 1 values can be verified more precisely
+- Improving VO₂ max percentile data as newer FRIEND registry updates become available
 - Translations and accessibility improvements
 
 Please open an issue before submitting large changes. All data values must be traceable to a published source with a DOI or URL.
@@ -66,7 +66,7 @@ Please open an issue before submitting large changes. All data values must be tr
 
 This tool is for educational purposes only. See [methodology.html](methodology.html) for a full list of assumptions and limitations. Key caveats:
 
-- Mandsager cohort is a clinical referral population, not a general population sample
+- Study cohorts are clinical referral populations, not general population samples
 - HRs are observational — causality is not established
 - Risk factors applied multiplicatively (independence assumption)
 - Not medical advice

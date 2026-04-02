@@ -3,300 +3,462 @@
 Unit tests for FRIEND 2022 spline fitting and normalization.
 
 Tests cover:
-1. Monotonicity: VO2 decreases with age, increases with percentile
-2. Boundary conditions: Interpolation at known percentiles matches table values
-3. Integrator validation: scipy.quad integration vs Monte Carlo integration
-4. Normalization: Population-averaged HR equals 1.0 (within tolerance)
-5. Extrapolation safety: Out-of-bounds queries handled gracefully
+1. Monotone quadratic spline: interpolation, monotonicity, C1 continuity, flat tails
+2. Monotone histospline: bin-average preservation, monotonicity, C1 continuity
+3. Exact integrator: closed-form vs scipy.quad comparison
+4. Normalization: population-averaged HR equals 1.0
+5. Full model: physiological plausibility, male > female, end-to-end consistency
 """
 
 import numpy as np
 import sys
 from pathlib import Path
 
-# Add scripts dir to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from fit_friend_splines import (
-    fit_percentile_splines,
-    fit_age_percentile_splines,
+    fit_monotone_quadratic_spline,
+    eval_quadratic_spline,
+    integrate_quadratic_spline,
+    fit_monotone_histospline,
+    verify_histospline_integrals,
+    build_full_model,
+    get_vo2,
     compute_normalization_constant,
-    get_percentiles_by_age,
+    get_age_bin_data,
     KOKKINOS_HR_PER_MET,
     FRIEND_2022_DATA,
 )
 
 
-class TestSplineMonotonicity:
-    """Test that splines preserve monotonicity constraints."""
-    
-    def test_vo2_decreases_with_age(self):
-        """VO2 must decrease as age increases (for fixed percentile)."""
-        splines, ages = fit_percentile_splines('male')
-        
-        # Test each percentile
-        for p, spline in splines.items():
-            vo2_values = [spline(a) for a in ages]
-            
-            # Check monotone decreasing
-            for i in range(len(vo2_values) - 1):
-                assert vo2_values[i] >= vo2_values[i+1], \
-                    f"Male p={p}: VO2 increased from age {ages[i]} to {ages[i+1]}"
-            print(f"✓ Male {p}th percentile: monotone decreasing with age")
-    
-    def test_vo2_increases_with_percentile(self):
-        """VO2 must increase as percentile increases (for fixed age)."""
-        splines = fit_age_percentile_splines('male')
-        
-        # Test each age
-        for age, spline in splines.items():
-            percentiles = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90])
-            vo2_values = [spline(p) for p in percentiles]
-            
-            # Check monotone increasing
-            for i in range(len(vo2_values) - 1):
-                assert vo2_values[i] <= vo2_values[i+1], \
-                    f"Age {age}: VO2 decreased from p={percentiles[i]} to p={percentiles[i+1]}"
-            print(f"✓ Age {age}: monotone increasing with percentile")
+# ============================================================================
+# Test 1: Monotone Quadratic Spline
+# ============================================================================
+
+class TestMonotoneQuadraticSpline:
+
+    def test_interpolation_at_knots(self):
+        """Spline must pass exactly through data points."""
+        x = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
+        y = np.array([20, 25, 29, 32, 35, 38, 41, 45, 50], dtype=float)
+        spline = fit_monotone_quadratic_spline(x, y)
+
+        max_err = 0
+        for xi, yi in zip(x, y):
+            val = eval_quadratic_spline(spline, xi)
+            err = abs(val - yi)
+            max_err = max(max_err, err)
+            assert err < 1e-10, f"At x={xi}: expected {yi}, got {val}, err={err}"
+
+        print(f"  PASS interpolation at knots (max error: {max_err:.2e})")
+
+    def test_monotonicity_increasing(self):
+        """Monotone increasing data must produce monotone increasing spline."""
+        x = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
+        y = np.array([20, 25, 29, 32, 35, 38, 41, 45, 50], dtype=float)
+        spline = fit_monotone_quadratic_spline(x, y)
+
+        xs = np.linspace(10, 90, 1000)
+        vals = eval_quadratic_spline(spline, xs)
+        diffs = np.diff(vals)
+        assert np.all(diffs >= -1e-10), \
+            f"Monotonicity violated: min diff = {diffs.min()}"
+        print("  PASS monotonicity (increasing)")
+
+    def test_monotonicity_decreasing(self):
+        """Monotone decreasing data must produce monotone decreasing spline."""
+        x = np.array([20, 30, 40, 50, 60, 70, 80], dtype=float)
+        y = np.array([50, 45, 40, 35, 30, 25, 20], dtype=float)
+        spline = fit_monotone_quadratic_spline(x, y)
+
+        xs = np.linspace(20, 80, 1000)
+        vals = eval_quadratic_spline(spline, xs)
+        diffs = np.diff(vals)
+        assert np.all(diffs <= 1e-10), \
+            f"Monotonicity violated: max diff = {diffs.max()}"
+        print("  PASS monotonicity (decreasing)")
+
+    def test_c1_continuity(self):
+        """Derivative must be continuous at interior knots."""
+        x = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
+        y = np.array([20, 25, 29, 32, 35, 38, 41, 45, 50], dtype=float)
+        spline = fit_monotone_quadratic_spline(x, y)
+
+        coeffs = spline['coeffs']
+        knots = spline['knots']
+
+        for i in range(len(coeffs) - 1):
+            a1, b1, c1 = coeffs[i]
+            a2, b2, c2 = coeffs[i + 1]
+            h = knots[i + 1] - knots[i]
+            # Right derivative of piece i
+            deriv_right = 2 * a1 * h + b1
+            # Left derivative of piece i+1
+            deriv_left = b2
+            err = abs(deriv_right - deriv_left)
+            assert err < 1e-8, \
+                f"C1 violation at knot {knots[i+1]}: left={deriv_left}, right={deriv_right}"
+
+        print("  PASS C1 continuity at interior knots")
+
+    def test_flat_tails(self):
+        """Values outside knot range must equal endpoint values."""
+        x = np.array([10, 20, 30, 40, 50], dtype=float)
+        y = np.array([5, 10, 15, 20, 25], dtype=float)
+        spline = fit_monotone_quadratic_spline(x, y)
+
+        assert eval_quadratic_spline(spline, 0) == y[0], "Left tail not flat"
+        assert eval_quadratic_spline(spline, 5) == y[0], "Left tail not flat"
+        assert eval_quadratic_spline(spline, 60) == y[-1], "Right tail not flat"
+        assert eval_quadratic_spline(spline, 100) == y[-1], "Right tail not flat"
+
+        print("  PASS flat tails")
 
 
-class TestSplineInterpolation:
-    """Test that splines match known data points."""
-    
-    def test_percentile_spline_at_table_values(self):
-        """Spline should exactly match (or be very close to) published table values."""
-        splines, ages = fit_percentile_splines('male')
-        ages_dict = get_percentiles_by_age('male')[1]
-        
-        # Check each percentile at each age
-        max_error = 0
-        for p, spline in splines.items():
-            table_values = ages_dict[p]
-            for age_idx, age in enumerate(ages):
-                spline_val = spline(age)
-                table_val = table_values[age_idx]
-                error = abs(spline_val - table_val)
-                max_error = max(max_error, error)
-                
-                # PCHIP should be exact at control points
-                assert error < 0.01, \
-                    f"Spline at p={p}, age={age}: expected {table_val}, got {spline_val} (error={error})"
-        
-        print(f"✓ Percentile splines match table values (max error: {max_error:.6f} mL/kg/min)")
-    
-    def test_age_percentile_spline_at_table_values(self):
-        """Age-percentile splines should match table values at known percentiles."""
-        splines = fit_age_percentile_splines('female')
-        ages_dict = get_percentiles_by_age('female')[1]
-        
-        max_error = 0
-        for age, spline in splines.items():
-            for p in [10, 20, 30, 40, 50, 60, 70, 80, 90]:
-                # Get index of this age in the ages list
-                ages_list = get_percentiles_by_age('female')[0]
-                age_idx = list(ages_list).index(age)
-                
-                table_val = ages_dict[p][age_idx]
-                spline_val = spline(p)
-                error = abs(spline_val - table_val)
-                max_error = max(max_error, error)
-                
-                assert error < 0.01, \
-                    f"Age-percentile spline at age={age}, p={p}: error={error}"
-        
-        print(f"✓ Age-percentile splines match table values (max error: {max_error:.6f} mL/kg/min)")
+# ============================================================================
+# Test 2: Exact Integrator
+# ============================================================================
+
+class TestIntegrator:
+
+    def test_constant_function(self):
+        """Integral of constant spline should be value * width."""
+        spline = fit_monotone_quadratic_spline(
+            np.array([0, 10], dtype=float),
+            np.array([5, 5], dtype=float))
+        integral = integrate_quadratic_spline(spline, 0, 10)
+        assert abs(integral - 50.0) < 1e-10, f"Expected 50, got {integral}"
+        print("  PASS constant function integral")
+
+    def test_linear_function(self):
+        """Integral of linear spline should match analytic result."""
+        spline = fit_monotone_quadratic_spline(
+            np.array([0, 10], dtype=float),
+            np.array([0, 10], dtype=float))
+        integral = integrate_quadratic_spline(spline, 0, 10)
+        expected = 50.0  # integral of x from 0 to 10
+        assert abs(integral - expected) < 1e-10, f"Expected {expected}, got {integral}"
+        print("  PASS linear function integral")
+
+    def test_vs_scipy_quad(self):
+        """Exact integrator must match scipy.quad on a real percentile spline."""
+        from scipy.integrate import quad as scipy_quad
+
+        x = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
+        y = np.array([20, 25, 29, 32, 35, 38, 41, 45, 50], dtype=float)
+        spline = fit_monotone_quadratic_spline(x, y)
+
+        # Our exact integral
+        our_integral = integrate_quadratic_spline(spline, 0, 100)
+
+        # scipy quad
+        scipy_integral, _ = scipy_quad(
+            lambda xv: eval_quadratic_spline(spline, xv), 0, 100)
+
+        rel_err = abs(our_integral - scipy_integral) / abs(scipy_integral)
+        assert rel_err < 1e-10, \
+            f"Integrator mismatch: ours={our_integral}, scipy={scipy_integral}, rel_err={rel_err}"
+
+        print(f"  PASS vs scipy.quad (rel error: {rel_err:.2e})")
+
+    def test_flat_tail_integration(self):
+        """Integration over flat tails must work correctly."""
+        x = np.array([10, 90], dtype=float)
+        y = np.array([20, 50], dtype=float)
+        spline = fit_monotone_quadratic_spline(x, y)
+
+        # Left tail [0, 10]: constant 20
+        left = integrate_quadratic_spline(spline, 0, 10)
+        assert abs(left - 200.0) < 1e-10, f"Left tail: expected 200, got {left}"
+
+        # Right tail [90, 100]: constant 50
+        right = integrate_quadratic_spline(spline, 90, 100)
+        assert abs(right - 500.0) < 1e-10, f"Right tail: expected 500, got {right}"
+
+        print("  PASS flat tail integration")
+
+    def test_partial_interval(self):
+        """Integration over partial intervals must be correct."""
+        x = np.array([0, 10], dtype=float)
+        y = np.array([0, 10], dtype=float)
+        spline = fit_monotone_quadratic_spline(x, y)
+
+        # Integral of x from 3 to 7 = (49 - 9)/2 = 20
+        integral = integrate_quadratic_spline(spline, 3, 7)
+        expected = 20.0
+        assert abs(integral - expected) < 1e-10, f"Expected {expected}, got {integral}"
+
+        print("  PASS partial interval integration")
 
 
-class TestNormalizationIntegration:
-    """Test normalization constant computation."""
-    
-    def test_normalization_via_scipy_quad(self):
-        """Normalization constant should be computed accurately via scipy.quad."""
-        splines = fit_age_percentile_splines('male')
-        
-        # Test a few ages
-        test_ages = [20, 35, 50, 65, 80]
-        k_values = {}
-        
-        for age in test_ages:
-            closest_age = min(splines.keys(), key=lambda a: abs(a - age))
-            k = compute_normalization_constant(age, 'male', splines)
-            k_values[age] = k
-            
-            # k should be positive and reasonably close to 1
-            assert k > 0, f"k must be positive at age {age}, got {k}"
-            # For a population where VO2 is roughly normally distributed around
-            # some median, we'd expect k close to 1 (within 1-10% of 1)
-            assert 0.8 < k < 1.2, f"k={k} at age {age} seems unreasonable"
-            print(f"✓ Age {age}: k = {k:.6f}")
-        
-        return k_values
-    
-    def test_monte_carlo_vs_scipy_quad(self):
-        """Compare scipy.quad integration with Monte Carlo integration."""
-        splines = fit_age_percentile_splines('male')
-        age = 50
-        closest_age = min(splines.keys(), key=lambda a: abs(a - age))
-        spline = splines[closest_age]
-        
-        def integrand(percentile):
-            vo2 = spline(percentile)
-            met = vo2 / 3.5
-            return KOKKINOS_HR_PER_MET ** met
-        
-        # Scipy quad integration
-        quad_result, quad_err = __import__('scipy.integrate', fromlist=['quad']).quad(integrand, 0, 100)
-        quad_result /= 100.0
-        k_quad = 1.0 / quad_result
-        
-        # Monte Carlo integration
-        n_samples = 100000
-        percentiles_mc = np.random.uniform(0, 100, n_samples)
-        integrand_vals = np.array([integrand(p) for p in percentiles_mc])
-        mc_result = np.mean(integrand_vals)
-        k_mc = 1.0 / mc_result
-        
-        # Compute relative error
-        rel_error = abs(k_quad - k_mc) / k_quad
-        
-        print(f"✓ Normalization constant comparison at age {age}:")
-        print(f"  scipy.quad: k = {k_quad:.8f}")
-        print(f"  Monte Carlo (N={n_samples}): k = {k_mc:.8f}")
-        print(f"  Relative error: {rel_error*100:.4f}%")
-        
-        # They should agree to within ~0.1% with 100k MC samples
-        assert rel_error < 0.002, \
-            f"scipy.quad and Monte Carlo differ too much: {rel_error*100:.2f}%"
-    
+# ============================================================================
+# Test 3: Monotone Histospline
+# ============================================================================
+
+class TestHistospline:
+
+    def test_bin_averages_preserved(self):
+        """Histospline integral over each bin must reproduce the bin average."""
+        bin_edges = np.array([20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
+        bin_values = np.array([50, 45, 40, 35, 30, 25, 20], dtype=float)
+
+        spline = fit_monotone_histospline(bin_edges, bin_values)
+        errors = verify_histospline_integrals(spline, bin_edges, bin_values)
+        max_err = max(errors)
+        assert max_err < 1e-6, f"Bin average error too large: {max_err}"
+
+        print(f"  PASS bin averages preserved (max error: {max_err:.2e})")
+
+    def test_friend_data_bin_averages(self):
+        """Histospline on actual FRIEND data must preserve bin averages."""
+        for sex in ['male', 'female']:
+            bin_edges, percentiles_data = get_age_bin_data(sex)
+            for p in sorted(percentiles_data.keys()):
+                spline = fit_monotone_histospline(bin_edges, percentiles_data[p])
+                errors = verify_histospline_integrals(
+                    spline, bin_edges, percentiles_data[p])
+                max_err = max(errors)
+                assert max_err < 1e-6, \
+                    f"{sex} p{p}: bin average error {max_err}"
+
+        print("  PASS FRIEND data bin averages preserved (all percentiles, both sexes)")
+
+    def test_monotonicity(self):
+        """FRIEND data is monotone decreasing with age; histospline must preserve this."""
+        for sex in ['male', 'female']:
+            bin_edges, percentiles_data = get_age_bin_data(sex)
+            for p in sorted(percentiles_data.keys()):
+                spline = fit_monotone_histospline(bin_edges, percentiles_data[p])
+                xs = np.linspace(bin_edges[0], bin_edges[-1], 1000)
+                vals = eval_quadratic_spline(spline, xs)
+                diffs = np.diff(vals)
+                assert np.all(diffs <= 1e-8), \
+                    f"{sex} p{p}: monotonicity violated, max increase = {diffs.max()}"
+
+        print("  PASS histospline monotonicity (all percentiles, both sexes)")
+
+    def test_histospline_integrator_vs_scipy(self):
+        """Exact integrator on histospline must match scipy.quad."""
+        from scipy.integrate import quad as scipy_quad
+
+        bin_edges = np.array([20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
+        bin_values = np.array([50, 45, 40, 35, 30, 25, 20], dtype=float)
+        spline = fit_monotone_histospline(bin_edges, bin_values)
+
+        our_integral = integrate_quadratic_spline(spline, 20, 90)
+        scipy_integral, _ = scipy_quad(
+            lambda x: eval_quadratic_spline(spline, x), 20, 90)
+
+        rel_err = abs(our_integral - scipy_integral) / abs(scipy_integral)
+        assert rel_err < 1e-10, \
+            f"Integrator mismatch: ours={our_integral}, scipy={scipy_integral}"
+
+        print(f"  PASS histospline integrator vs scipy (rel error: {rel_err:.2e})")
+
+
+# ============================================================================
+# Test 4: Normalization
+# ============================================================================
+
+class TestNormalization:
+
     def test_population_averaged_hr_equals_one(self):
-        """The population-averaged fitness HR should equal 1.0 by construction."""
-        splines = fit_age_percentile_splines('male')
-        
-        test_ages = [25, 45, 65]
-        for age in test_ages:
-            closest_age = min(splines.keys(), key=lambda a: abs(a - age))
-            spline = splines[closest_age]
-            k = compute_normalization_constant(age, 'male', splines)
-            
-            # Integrate k * 0.86^MET over percentiles [0, 100]
-            def normalized_integrand(percentile):
-                vo2 = spline(percentile)
-                met = vo2 / 3.5
-                return k * (KOKKINOS_HR_PER_MET ** met)
-            
-            from scipy.integrate import quad
-            pop_avg_hr, _ = quad(normalized_integrand, 0, 100)
-            pop_avg_hr /= 100.0
-            
-            # Should be essentially 1.0
-            error = abs(pop_avg_hr - 1.0)
-            print(f"✓ Age {age}: population-averaged HR = {pop_avg_hr:.10f} (error: {error:.2e})")
-            
-            assert error < 1e-6, \
-                f"Population-averaged HR should be 1.0, got {pop_avg_hr} at age {age}"
+        """Population-averaged fitness HR must equal 1.0 by construction."""
+        from scipy.integrate import quad as scipy_quad
+
+        for sex in ['male', 'female']:
+            model = build_full_model(sex)
+
+            for age in [25, 45, 65, 85]:
+                k = compute_normalization_constant(model, age)
+
+                # Verify: integral of k * 0.86^(VO2(p)/3.5) over [0,100] / 100 = 1.0
+                def integrand(p):
+                    vo2 = eval_quadratic_spline(
+                        model['percentile_splines'][age], p)
+                    return k * KOKKINOS_HR_PER_MET ** (vo2 / 3.5)
+
+                avg_hr, _ = scipy_quad(integrand, 0, 100)
+                avg_hr /= 100.0
+                err = abs(avg_hr - 1.0)
+                assert err < 1e-6, \
+                    f"{sex} age {age}: pop-avg HR = {avg_hr}, error = {err}"
+
+            print(f"  PASS {sex}: population-averaged HR = 1.0 at all tested ages")
+
+    def test_normalization_k_reasonable(self):
+        """Normalization constants should be in a physiologically reasonable range."""
+        for sex in ['male', 'female']:
+            model = build_full_model(sex)
+            for age in range(20, 90):
+                k = compute_normalization_constant(model, age)
+                assert 1.0 < k < 10.0, \
+                    f"{sex} age {age}: k = {k} out of range"
+
+        print("  PASS normalization constants in reasonable range")
+
+    def test_ci_normalization_pop_avg_hr_equals_one(self):
+        """CI normalization constants must also produce pop-avg HR = 1.0."""
+        from scipy.integrate import quad as scipy_quad
+        from fit_friend_splines import KOKKINOS_HR_CI_LO, KOKKINOS_HR_CI_HI
+
+        for sex in ['male', 'female']:
+            model = build_full_model(sex)
+            for age in [30, 50, 70]:
+                for hr_val, label in [(KOKKINOS_HR_CI_LO, 'lo'), (KOKKINOS_HR_CI_HI, 'hi')]:
+                    k = compute_normalization_constant(model, age, hr_per_met=hr_val)
+
+                    def integrand(p, _k=k, _hr=hr_val):
+                        vo2 = eval_quadratic_spline(
+                            model['percentile_splines'][age], p)
+                        return _k * _hr ** (vo2 / 3.5)
+
+                    avg_hr, _ = scipy_quad(integrand, 0, 100)
+                    avg_hr /= 100.0
+                    err = abs(avg_hr - 1.0)
+                    assert err < 1e-6, \
+                        f"{sex} age {age} {label}: pop-avg HR = {avg_hr}, error = {err}"
+
+        print("  PASS CI normalization constants produce pop-avg HR = 1.0")
+
+    def test_ci_k_ordering(self):
+        """k_lo (HR=0.85) > k (HR=0.86) > k_hi (HR=0.87) at all ages."""
+        from fit_friend_splines import KOKKINOS_HR_CI_LO, KOKKINOS_HR_CI_HI
+
+        for sex in ['male', 'female']:
+            model = build_full_model(sex)
+            for age in range(20, 90):
+                k = compute_normalization_constant(model, age, KOKKINOS_HR_PER_MET)
+                k_lo = compute_normalization_constant(model, age, KOKKINOS_HR_CI_LO)
+                k_hi = compute_normalization_constant(model, age, KOKKINOS_HR_CI_HI)
+                assert k_lo > k > k_hi, \
+                    f"{sex} age {age}: k_lo={k_lo}, k={k}, k_hi={k_hi} ordering violated"
+
+        print("  PASS k_lo > k > k_hi at all ages")
 
 
-class TestBoundaryAndExtrapolation:
-    """Test edge cases and extrapolation behavior."""
-    
-    def test_percentile_bounds(self):
-        """Test behavior at percentile boundaries (< 10, > 90)."""
-        splines = fit_age_percentile_splines('male')
-        age = 50
-        closest_age = min(splines.keys(), key=lambda a: abs(a - age))
-        spline = splines[closest_age]
-        
-        # At boundaries
-        vo2_10 = spline(10)
-        vo2_90 = spline(90)
-        
-        # Below 10 should extrapolate to constant (10th percentile value)
-        vo2_5 = spline(5)
-        assert vo2_5 == vo2_10, "PCHIP with extrapolate='const' should hold at 10th percentile"
-        
-        # Above 90 should extrapolate to constant (90th percentile value)
-        vo2_95 = spline(95)
-        assert vo2_95 == vo2_90, "PCHIP with extrapolate='const' should hold at 90th percentile"
-        
-        print(f"✓ Percentile extrapolation: < 10 → const({vo2_10:.1f}), > 90 → const({vo2_90:.1f})")
-    
-    def test_age_extrapolation(self):
-        """Test behavior at age boundaries."""
-        splines, ages = fit_percentile_splines('male')
-        min_age = min(ages)
-        max_age = max(ages)
-        
-        # At the boundary percentiles
-        spline = splines[50]
-        
-        # Before min age should extrapolate to constant
-        vo2_min = spline(min_age)
-        vo2_before = spline(min_age - 5)
-        assert vo2_before == vo2_min, "Should extrapolate to constant before min age"
-        
-        # After max age should extrapolate to constant
-        vo2_max = spline(max_age)
-        vo2_after = spline(max_age + 5)
-        assert vo2_after == vo2_max, "Should extrapolate to constant after max age"
-        
-        print(f"✓ Age extrapolation safe: before {min_age} → {vo2_min:.1f}, after {max_age} → {vo2_max:.1f}")
+# ============================================================================
+# Test 5: Full Model
+# ============================================================================
+
+class TestFullModel:
+
+    def test_male_higher_than_female(self):
+        """Males should have higher VO2 at same age and percentile."""
+        model_m = build_full_model('male')
+        model_f = build_full_model('female')
+
+        for age in [25, 35, 45, 55, 65, 75, 85]:
+            for pct in [10, 50, 90]:
+                vo2_m = get_vo2(model_m, age, pct)
+                vo2_f = get_vo2(model_f, age, pct)
+                assert vo2_m > vo2_f, \
+                    f"age={age} p={pct}: male {vo2_m} <= female {vo2_f}"
+
+        print("  PASS male VO2 > female VO2 at all ages/percentiles")
+
+    def test_vo2_decreases_with_age(self):
+        """VO2 must decrease with age at fixed percentile."""
+        for sex in ['male', 'female']:
+            model = build_full_model(sex)
+            for pct in [10, 50, 90]:
+                prev = get_vo2(model, 20, pct)
+                for age in range(21, 90):
+                    curr = get_vo2(model, age, pct)
+                    assert curr <= prev + 0.01, \
+                        f"{sex} p={pct}: VO2 increased from age {age-1} to {age}"
+                    prev = curr
+
+        print("  PASS VO2 decreases with age (all percentiles, both sexes)")
+
+    def test_vo2_increases_with_percentile(self):
+        """VO2 must increase with percentile at fixed age."""
+        for sex in ['male', 'female']:
+            model = build_full_model(sex)
+            for age in range(20, 90):
+                pcts = np.linspace(1, 99, 200)
+                vals = [get_vo2(model, age, p) for p in pcts]
+                diffs = np.diff(vals)
+                assert np.all(diffs >= -1e-8), \
+                    f"{sex} age {age}: VO2 decreased with percentile"
+
+        print("  PASS VO2 increases with percentile (all ages, both sexes)")
+
+    def test_flat_tails_in_percentile(self):
+        """Below 10th and above 90th percentile, VO2 must be constant."""
+        for sex in ['male', 'female']:
+            model = build_full_model(sex)
+            for age in [30, 50, 70]:
+                v10 = get_vo2(model, age, 10)
+                v5 = get_vo2(model, age, 5)
+                v1 = get_vo2(model, age, 1)
+                assert abs(v5 - v10) < 1e-10, f"{sex} age {age}: p5 != p10"
+                assert abs(v1 - v10) < 1e-10, f"{sex} age {age}: p1 != p10"
+
+                v90 = get_vo2(model, age, 90)
+                v95 = get_vo2(model, age, 95)
+                v99 = get_vo2(model, age, 99)
+                assert abs(v95 - v90) < 1e-10, f"{sex} age {age}: p95 != p90"
+                assert abs(v99 - v90) < 1e-10, f"{sex} age {age}: p99 != p90"
+
+        print("  PASS flat tails in percentile direction")
+
+    def test_plausible_values(self):
+        """Spot-check that VO2 values are physiologically plausible."""
+        model_m = build_full_model('male')
+
+        # 30-year-old male, 50th percentile should be roughly 40-45
+        v = get_vo2(model_m, 30, 50)
+        assert 38 < v < 48, f"30M p50: {v} not in plausible range"
+
+        # 70-year-old male, 50th percentile should be roughly 25-30
+        v = get_vo2(model_m, 70, 50)
+        assert 24 < v < 32, f"70M p50: {v} not in plausible range"
+
+        # 30-year-old male, 90th percentile should be > 50
+        v = get_vo2(model_m, 30, 90)
+        assert v > 48, f"30M p90: {v} not > 48"
+
+        print("  PASS plausible VO2 values")
 
 
-class TestRegressionAndConsistency:
-    """Test consistency across both sexes and with FRIEND tables."""
-    
-    def test_male_vs_female_difference(self):
-        """Males should have higher VO2 max than females at same age/percentile."""
-        splines_m = fit_age_percentile_splines('male')
-        splines_f = fit_age_percentile_splines('female')
-        
-        age = 45
-        closest_m = min(splines_m.keys(), key=lambda a: abs(a - age))
-        closest_f = min(splines_f.keys(), key=lambda a: abs(a - age))
-        
-        for p in [10, 50, 90]:
-            vo2_m = splines_m[closest_m](p)
-            vo2_f = splines_f[closest_f](p)
-            
-            assert vo2_m > vo2_f, f"Male VO2 should exceed female at p={p}, age={age}"
-            print(f"✓ Age {age}, p={p}: Male {vo2_m:.1f} > Female {vo2_f:.1f}")
-
+# ============================================================================
+# Runner
+# ============================================================================
 
 def run_all_tests():
-    """Run all test classes."""
     print("=" * 70)
-    print("SPLINE FITTING UNIT TESTS")
+    print("SPLINE FITTING UNIT TESTS (v2: histospline + quadratic)")
     print("=" * 70)
-    
+
     test_suites = [
-        ("Monotonicity", TestSplineMonotonicity),
-        ("Interpolation", TestSplineInterpolation),
-        ("Integration & Normalization", TestNormalizationIntegration),
-        ("Boundary & Extrapolation", TestBoundaryAndExtrapolation),
-        ("Regression & Consistency", TestRegressionAndConsistency),
+        ("Monotone Quadratic Spline", TestMonotoneQuadraticSpline),
+        ("Exact Integrator", TestIntegrator),
+        ("Monotone Histospline", TestHistospline),
+        ("Normalization", TestNormalization),
+        ("Full Model", TestFullModel),
     ]
-    
+
     for suite_name, suite_class in test_suites:
         print(f"\n{suite_name}:")
         print("-" * 70)
-        
+
         suite = suite_class()
-        for method_name in dir(suite):
+        for method_name in sorted(dir(suite)):
             if method_name.startswith('test_'):
                 try:
-                    method = getattr(suite, method_name)
-                    method()
+                    getattr(suite, method_name)()
                 except AssertionError as e:
-                    print(f"✗ {method_name} FAILED: {e}")
+                    print(f"  FAIL {method_name}: {e}")
                     return False
                 except Exception as e:
-                    print(f"✗ {method_name} ERROR: {e}")
+                    print(f"  ERROR {method_name}: {e}")
                     import traceback
                     traceback.print_exc()
                     return False
-    
+
     print("\n" + "=" * 70)
-    print("ALL TESTS PASSED ✓")
+    print("ALL TESTS PASSED")
     print("=" * 70)
     return True
 
