@@ -127,15 +127,15 @@
       <h2>Life expectancy impact</h2>
       <p id="le-summary"></p>
       <p class="small muted mt-1" id="le-source-note">Computed by integrating the
-         SSA 2021 Period Life Table
+         SSA 2022 Period Life Table
          from your current age to 119, with mortality scaled by the fitness-level HR ratio.
          This is a simplified model; actual life expectancy depends on many factors.</p>
       <script>
         // Inject citation link from centralized data
         document.addEventListener('DOMContentLoaded', () => {
           const el = document.getElementById('le-source-note');
-          if (el) el.innerHTML = el.innerHTML.replace('SSA 2021 Period Life Table',
-            citeLink('ssaLifeTable', 'SSA 2021 Period Life Table'));
+          if (el) el.innerHTML = el.innerHTML.replace('SSA 2022 Period Life Table',
+            citeLink('ssaLifeTable', 'SSA 2022 Period Life Table'));
         });
       </script>
     </div>

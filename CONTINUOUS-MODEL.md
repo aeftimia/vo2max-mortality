@@ -24,7 +24,7 @@ This provides higher resolution, smoother transitions, and better scientific acc
 - Mandsager category display (for reference)
 - Risk factor multiplication logic
 - Life expectancy calculations
-- SSA 2021 life tables
+- SSA 2022 life tables
 
 ---
 

@@ -174,7 +174,7 @@ const Results = {
       If you improved to the <strong>90th percentile</strong> (top decile): <strong>+${fmtYears(leTop - leCurrent)}</strong>.<br>
       If you declined to the <strong>10th percentile</strong> (bottom decile): <strong>${fmtYears(leBottom - leCurrent)}</strong>.
       <br><br>
-      <span class="small muted">(Based on ${citeLink('ssaLifeTable', 'SSA 2021 life table')} 
+      <span class="small muted">(Based on ${citeLink('ssaLifeTable', 'SSA 2022 life table')} 
       integration with continuous FRIEND+Kokkinos fitness model. Plausible range from HR 95% CI: ${fmtYears(leUserRange.lo)} to 
       ${fmtYears(leUserRange.hi)} years.)</span>
     `;

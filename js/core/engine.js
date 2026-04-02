@@ -2,7 +2,7 @@
  * Mortality Engine (Continuous VO2 Model)
  *
  * Core computation linking VO2 max fitness level to absolute annual mortality
- * probability, anchored to SSA 2021 period life tables and Kokkinos 2022
+ * probability, anchored to SSA 2022 period life tables and Kokkinos 2022
  * continuous hazard ratios (0.86 per +1 MET, 95% CI 0.85–0.87).
  *
  * MATHEMATICAL APPROACH

@@ -30,7 +30,7 @@ const CITATIONS = {
     url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4919021/',
   },
   ssaLifeTable: {
-    short: 'SSA Period Life Table, 2021',
+    short: 'SSA Period Life Table, 2022',
     full: 'Social Security Administration, Office of the Chief Actuary. ' +
           'Period Life Table, 2021.',
     url: 'https://www.ssa.gov/oact/STATS/table4c6.html',
