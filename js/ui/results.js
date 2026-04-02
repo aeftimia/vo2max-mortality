@@ -90,11 +90,17 @@ const Results = {
     const container = document.getElementById('equivalents-container');
     container.innerHTML = '';
 
-    // Suggest moving up or down a decile plus extremes (top/bottom decile)
+    // Suggest meaningful moves: adjacent deciles (up/down from current) + extremes
     const currentP = Math.round(getPercentileFromVo2(age, vo2max, sex));
-    const decile = Math.ceil(currentP / 10) * 10;
-    const targets = [Math.max(10, decile-10), decile, Math.min(90, decile+10), 10, 90];
-    const uniqueTargets = Array.from(new Set(targets));
+    const currentDecile = Math.ceil(currentP / 10) * 10;
+    
+    // Show: decile below (if exists), decile above (if exists), 10th, 90th
+    const targets = [];
+    if (currentDecile > 10) targets.push(currentDecile - 10);  // decile below
+    if (currentDecile < 90) targets.push(currentDecile + 10);  // decile above
+    targets.push(10, 90);  // extremes
+    
+    const uniqueTargets = Array.from(new Set(targets)).sort((a, b) => a - b);
     const leCurrent = lifeExpectancy(age, sex, qUser / qPop);
 
     for (const p of uniqueTargets) {
