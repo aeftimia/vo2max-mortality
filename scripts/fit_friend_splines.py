@@ -87,6 +87,11 @@ def get_percentiles_by_age(sex):
     Returns: (ages, percentiles_dict)
       ages: list of decade midpoints [24.5, 34.5, 44.5, 54.5, 64.5, 74.5, 84.5]
       percentiles_dict: {p: numpy array of VO2 values for that percentile}
+    
+    Note: FRIEND 2022 reports percentile reference values (e.g., "the 10th percentile VO₂
+    in the 20-29 age group"), not bin averages. Each reported value represents the VO₂
+    at a specific percentile rank within that age group. We treat each as a point value
+    at the decade midpoint, enabling smooth PCHIP interpolation across ages.
     """
     data = FRIEND_2022_DATA[sex]
     age_ranges = sorted(data.keys(), key=lambda x: int(x.split('-')[0]))
@@ -118,7 +123,12 @@ def fit_percentile_splines(sex):
     Returns: {percentile: PchipInterpolator}
     
     Each spline maps age → VO2_max (mL/kg/min)
-    PCHIP ensures monotone decreasing VO2 with increasing age.
+    
+    Interpolation approach:
+    - Input: FRIEND 2022 percentile reference values at discrete age groups (20-29, 30-39, etc.)
+    - These are treated as point estimates at decade midpoints (24.5, 34.5, etc.)
+    - PCHIP (Piecewise Cubic Hermite Interpolating Polynomial) ensures monotone decreasing
+      VO2 with increasing age, while smoothly interpolating between decade points.
     """
     ages, percentiles_data = get_percentiles_by_age(sex)
     
@@ -137,8 +147,12 @@ def fit_age_percentile_splines(sex):
     For a given age, fit monotone spline percentile → VO2.
     Returns: {age: PchipInterpolator}
     
-    Each spline maps percentile → VO2_max (mL/kg/min)
-    PCHIP ensures monotonicity.
+    Each spline maps percentile (1–99) → VO2_max (mL/kg/min)
+    
+    Interpolation approach:
+    - Input: FRIEND 2022 percentile values at discrete percentile ranks (10th, 20th, ..., 90th)
+    - PCHIP ensures monotone increasing VO2 with percentile rank (higher fitness at higher percentiles)
+    - Extrapolation: constant values below 10th and above 90th percentile
     """
     ages, percentiles_data = get_percentiles_by_age(sex)
     
