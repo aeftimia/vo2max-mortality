@@ -12,13 +12,6 @@
             {left:'$$',right:'$$',display:true},
             {left:'\\(',right:'\\)',display:false}
           ]})"></script>
-  <style>
-    .math-block { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6;
-                  border-radius: 4px; padding: 1rem 1.25rem; overflow-x: auto;
-                  margin: 0.75rem 0 1rem; }
-    .math-block .katex-display { margin: 0; }
-    .math-block .katex-display + .katex-display { margin-top: 0.75rem; }
-  </style>
 </head>
 <body>
 
@@ -113,7 +106,7 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
   <li><strong>Continuous hazard ratio:</strong> Following Kokkinos et al. 2022, the hazard ratio
     for mortality is:
     <div class="math-block">
-      $$\mathrm{HR}_{\text{raw}}(\mathrm{VO}_2) = 0.86^{\mathrm{MET}} \quad \text{where} \quad \mathrm{MET} = \frac{\mathrm{VO}_2}{3.5}$$
+      $$\mathrm{HR}_{\text{raw}} = 0.86^{\,\mathrm{MET}}, \quad \mathrm{MET} = \mathrm{VO}_2 / 3.5$$
     </div>
     This formula is consistent across age, sex, and racial groups (Kokkinos et al. found no
     significant interactions). The continuous functional form has been shown to fit observational
@@ -123,7 +116,7 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
     hazard multiplier equals 1.0 (preserving the baseline life-table mortality), a normalization
     constant \(k(\text{age}, \text{sex})\) is computed:
     <div class="math-block">
-      $$k(\text{age}, \text{sex}) = \frac{1}{\mathbb{E}[\mathrm{HR}_{\text{raw}}]} = \frac{1}{\int_0^1 0.86^{\mathrm{VO}_2(p) / 3.5} \, dp}$$
+      $$k(a,s) = \frac{1}{\int_0^1 0.86^{\,\mathrm{VO}_2(p,a,s)\,/\,3.5} \, dp}$$
     </div>
     where the expectation is taken over a uniform percentile rank \(p \in [0, 1]\) and \(\mathrm{VO}_2(p)\)
     is the piecewise spline value at percentile \(p\). The integral is computed using
@@ -136,7 +129,7 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
 
   <li><strong>Normalized hazard:</strong> The user's fitness hazard multiplier is:
     <div class="math-block">
-      $$\mathrm{HR}_{\text{fitness}}(\mathrm{age}, \mathrm{VO}_2, \text{sex}) = k(\text{age}, \text{sex}) \times 0.86^{\mathrm{VO}_2 / 3.5}$$
+      $$\mathrm{HR}_{\text{fit}}(a, s, \mathrm{VO}_2) = k(a,s) \cdot 0.86^{\,\mathrm{VO}_2 / 3.5}$$
     </div>
     This ensures:
     <ul>
@@ -200,7 +193,7 @@ range with physiological bounds at the extremes (${citeLink('shephard2009', 'She
 distribution:</p>
 
 <div class="math-block">
-$$\bar{H}(a,s) = \int_0^1 0.86^{\text{MET}(p,a,s)} \, dp$$
+$$\bar{H}(a,s) = \int_0^1 0.86^{\,\mathrm{MET}(p,a,s)} \, dp$$
 </div>
 
 <p>The normalization constant is \(k(a,s) = 1 / \bar{H}(a,s)\). This is pre-computed offline for all
@@ -209,7 +202,7 @@ ages 20–89 and both sexes.</p>
 <p>The user's normalized fitness hazard at VO₂ max \(\text{VO}_2\) is:</p>
 
 <div class="math-block">
-$$\mathrm{HR}_{\text{fitness}}(a, s, \text{VO}_2) = k(a,s) \times 0.86^{\text{VO}_2 / 3.5}$$
+$$\mathrm{HR}_{\text{fit}}(a, s, \mathrm{VO}_2) = k(a,s) \cdot 0.86^{\,\mathrm{VO}_2 / 3.5}$$
 </div>
 
 <p><strong>Why integrate rather than anchor at the median?</strong> Because the exponential function
@@ -222,7 +215,7 @@ percentile.</p>
 <p>Comorbidity hazard ratios from large cohort studies are applied multiplicatively:</p>
 
 <div class="math-block">
-$$\mathrm{HR}_{\text{user}} = \mathrm{HR}_{\text{fitness}} \times \prod_k \mathrm{HR}_k$$
+$$\mathrm{HR}_{\text{user}} = \mathrm{HR}_{\text{fit}} \cdot \prod_i \mathrm{HR}_i$$
 </div>
 
 <p>where the product is over all selected comorbidities (hypertension, diabetes, smoking, etc.).
@@ -232,7 +225,7 @@ a simplification — real interactions are often more complex.</p>
 <h3>Step 5 — User's annual mortality</h3>
 
 <div class="math-block">
-$$q_{\text{user}}(a, s) = q_{\text{pop}}(a, s) \times \mathrm{HR}_{\text{user}}$$
+$$q_{\text{user}}(a, s) = q_{\text{pop}}(a, s) \cdot \mathrm{HR}_{\text{user}}$$
 </div>
 
 <p>This is the user's estimated annual probability of death at age \(a\).</p>
@@ -244,7 +237,7 @@ normalization constant so that the population-average HR = 1.0 property is maint
 CI level:</p>
 
 <div class="math-block">
-$$\mathrm{HR}_{\text{lo}} = k_{0.85}(a,s) \times 0.85^{\text{MET}}, \quad \mathrm{HR}_{\text{hi}} = k_{0.87}(a,s) \times 0.87^{\text{MET}}$$
+$$\mathrm{HR}_{\text{lo}} = k_{0.85}(a,s) \cdot 0.85^{\,\mathrm{MET}}, \quad \mathrm{HR}_{\text{hi}} = k_{0.87}(a,s) \cdot 0.87^{\,\mathrm{MET}}$$
 </div>
 
 <p>where \(k_{0.85}\) and \(k_{0.87}\) are computed analogously to \(k\) but using the respective
@@ -257,7 +250,7 @@ The displayed range is labeled "plausible" rather than "95% CI" because this sim
 expectancy from age \(a\) is:</p>
 
 <div class="math-block">
-$$\mathrm{LE}_{\text{user}} = \sum_{x=a}^{118} \prod_{t=a}^{x} \bigl(1 - \min(m \cdot q_{\text{pop}}(t,s), 1)\bigr)$$
+$$\mathrm{LE} = \sum_{x=a}^{118} \prod_{t=a}^{x} \bigl(1 - \min(m \cdot q_{\text{pop}}(t,s),\; 1)\bigr)$$
 </div>
 
 <p>(This is the standard actuarial formula: each term is the probability of surviving to the start of
@@ -403,13 +396,10 @@ an equivalent annual mortality burden.</p>
   // ── Risk equivalent formulas ─────────────────────────────────────────────────
   const equivLines = RISK_EQUIVALENTS.map(re => {
     const invRate = Math.round(1 / re.mortalityPerEvent);
-    const fracStr = re.mortalityPerEvent < 0.001
-      ? `1/${invRate.toLocaleString()}`
-      : `1/${invRate.toLocaleString()}`;
-    return `$$N_{\\text{${re.labelPlural}}} = \\frac{\\Delta q}{${fracStr}} = \\Delta q \\times ${invRate.toLocaleString()}$$`;
+    return `$$N_{\\small\\text{${re.labelPlural}}} = \\Delta q \\times ${invRate.toLocaleString()}$$`;
   });
   document.getElementById('equiv-formulas').innerHTML =
-    `$$N_{\\text{activity}} = \\frac{\\Delta q}{p_{\\text{activity}}}$$\n\n` +
+    `$$N = \\Delta q \\;/\\; p_{\\text{activity}}$$\n\n` +
     equivLines.join('\n\n');
 
   // ── Overview equiv activities sentence ───────────────────────────────────
