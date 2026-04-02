@@ -40,8 +40,6 @@ const Results = {
 
   // ── Mortality table ─────────────────────────────────────────────────────
   renderTable(result) {
-    const { currentCategory, qUserByCategory, qRangeByCategory,
-            categoryBounds } = result;
     // Use FRIEND percentiles display rather than Mandsager bins
     const cats = ['p90', 'p80', 'p70', 'p60', 'p50', 'p40', 'p30', 'p20', 'p10'];
 
@@ -118,18 +116,25 @@ const Results = {
 
   // ── Life expectancy summary ─────────────────────────────────────────────
   renderLE(result) {
-    const { currentCategory, leDeltaByCategory, lePopulation } = result;
-    const eliteLE  = leDeltaByCategory['Elite'];
-    const lowLE    = leDeltaByCategory['Low'];
-    const el       = document.getElementById('le-summary');
+    const { leCurrent, lePopulation, leUserRange } = result;
+    const el = document.getElementById('le-summary');
 
     if (!el) return;
+    
+    const currentDelta = lePopulation - leCurrent;  // years gained by being at population average
+    const rangeLo = leUserRange.lo - leCurrent;     // years if mortality at high CI
+    const rangeHi = leUserRange.hi - leCurrent;     // years if mortality at low CI
+    
     el.innerHTML = `
-      Compared to your current fitness level: moving to <strong>Elite</strong> would add
-      approximately <strong>${fmtYears(eliteLE)}</strong> of remaining life expectancy.
-      Declining to <strong>Low</strong> fitness would subtract
-      approximately <strong>${fmtYears(Math.abs(lowLE))}</strong>
-      (based on ${citeLink('ssaLifeTable', 'SSA 2021 life table')} integration).
+      Your current fitness level implies a remaining life expectancy of approximately
+      <strong>${fmtYears(leCurrent)}</strong> years (vs. population average of 
+      <strong>${fmtYears(lePopulation)}</strong> years).
+      <br><br>
+      Plausible range (from HR 95% CI): <strong>${fmtYears(leUserRange.lo)}</strong> to 
+      <strong>${fmtYears(leUserRange.hi)}</strong> years.
+      <br><br>
+      <span class="small muted">(Based on ${citeLink('ssaLifeTable', 'SSA 2021 life table')} 
+      integration with continuous FRIEND+Kokkinos fitness model.)</span>
     `;
   },
 
