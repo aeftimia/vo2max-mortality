@@ -29,17 +29,26 @@ const CITATIONS = {
     pmc: 'PMC4919021',
     url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4919021/',
   },
+  friend2022: {
+    short: 'FRIEND 2022',
+    full: 'Kaminsky LA, et al. Updated Reference Standards for Cardiorespiratory ' +
+          'Fitness Measured with Cardiopulmonary Exercise Testing: Data from the ' +
+          'Fitness Registry and the Importance of Exercise National Database (FRIEND). ' +
+          'Mayo Clin Proc. 2022;97(2):285–293.',
+    doi: '10.1016/j.mayocp.2021.08.020',
+    url: 'https://www.mayoclinicproceedings.org/article/S0025-6196(21)00682-3/fulltext',
+  },
   ssaLifeTable: {
     short: 'SSA Period Life Table, 2022',
     full: 'Social Security Administration, Office of the Chief Actuary. ' +
           'Period Life Table, 2021.',
     url: 'https://www.ssa.gov/oact/STATS/table4c6.html',
   },
-  nvss2021: {
-    short: 'CDC NVSS Life Tables, 2021',
-    full: 'Arias E, Xu JQ. United States Life Tables, 2021. National Vital ' +
-          'Statistics Reports, Vol. 72, No. 12. Hyattsville, MD: NCHS. 2023.',
-    url: 'https://www.cdc.gov/nchs/data/nvsr/nvsr72/nvsr72-12.pdf',
+  nvss2022: {
+    short: 'CDC NVSS Life Tables, 2022',
+    full: 'Arias E, Xu JQ. United States Life Tables, 2022. National Vital ' +
+          'Statistics Reports, Vol. 73, No. 12. Hyattsville, MD: NCHS. 2024.',
+    url: 'https://www.cdc.gov/nchs/data/nvsr/nvsr73/nvsr73-12.pdf',
   },
   seshasai2011: {
     short: 'Seshasai 2011',

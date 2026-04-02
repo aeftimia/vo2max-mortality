@@ -47,10 +47,10 @@
 <p>This calculator estimates how a person's annual all-cause mortality probability
 changes across cardiorespiratory fitness (VO₂ max) levels. The approach has three steps:</p>
 <ol>
-  <li><strong>Anchor to population life tables.</strong> The CDC NVSS 2022 US Life Tables give the
+  <li><strong>Anchor to population life tables.</strong> The ${citeLink('nvss2022', 'CDC NVSS 2022 US Life Tables')} give the
     average annual probability of death q(age, sex) for the US population.</li>
-  <li><strong>Apply continuous fitness hazard model.</strong> Using FRIEND 2022 VO₂ max percentile norms
-    and Kokkinos et al. (2022) continuous hazard ratio (0.86 per +1 MET), we compute a smooth,
+  <li><strong>Apply continuous fitness hazard model.</strong> Using ${citeLink('friend2022', 'FRIEND 2022')} VO₂ max percentile norms
+    and ${citeLink('kokkinos2022', 'Kokkinos et al. 2022')} continuous hazard ratio (0.86 per +1 MET), we compute a smooth,
     monotone fitness hazard multiplier normalized so that the population-average equals 1.0.
     (For historical reference, the original categorical approach using Mandsager et al. 2018 is
     retained for display comparison.)</li>
@@ -172,7 +172,7 @@ spline parameters and the HR CI.</p>
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
-<h2>Baseline Mortality: US Life Tables 2022</h2>
+<h2>Baseline Mortality: ${citeLink('nvss2022', 'US Life Tables 2022')}</h2>
 
 <p id="life-table-source"><!-- filled by JS --></p>
 
@@ -409,10 +409,10 @@ an equivalent annual mortality burden.</p>
     `occurrences of risky activities (${actNames.join(', ')}).`;
 
   // ── Life table source ────────────────────────────────────────────────────
-  const nvss = CITATIONS.nvss2021;
+  const nvss = CITATIONS.nvss2022;
   document.getElementById('life-table-source').innerHTML =
     `<strong>Source:</strong> The q(x) values — probability of dying within one year at exact age x — ` +
-    `come from the ${citeLink('nvss2021', nvss.full.split('.').slice(0, 2).join('.'))}. ` +
+    `come from the ${citeLink('nvss2022', nvss.full.split('.').slice(0, 2).join('.'))}. ` +
     `All integer ages 0–99 are transcribed directly from those tables. ` +
     `Ages 100–119 use log-linear extrapolation anchored at age 99, matching standard actuarial ` +
     `practice for open-ended intervals.`;
