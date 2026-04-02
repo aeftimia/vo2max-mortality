@@ -1,103 +1,208 @@
 /**
- * Chart rendering using Chart.js showing FRIEND decile bands.
+ * Chart rendering using Chart.js showing cumulative distributions.
+ * Displays two CDFs: VO₂ max and annual mortality, with user position and population baseline.
  * Dependency: Chart.js loaded via CDN before this file.
  */
 
+let vo2Chart = null;
 let mortalityChart = null;
 
 const Charts = {
-  // Return a neutral color for the band; current position will be highlighted
-  getBandColor() { return '#7c3aedcc'; },
   getCurrentColor() { return getComputedStyle(document.documentElement).getPropertyValue('--c-current').trim() || '#0ea5a4'; },
+  getPopColor() { return '#64748b'; },
 
   render(result) {
-    this.renderMortalityBar(result);
+    this.renderVo2CDF(result);
+    this.renderMortalityCDF(result);
   },
 
-  renderMortalityBar(result) {
-    // Deciles 10..90
-    const deciles = [10,20,30,40,50,60,70,80,90];
-    const labels = deciles.map(d => `${d}th`);
+  /**
+   * Render VO₂ max CDF: percentile (X) vs VO₂ (Y)
+   * Shows user's position and population median (50th percentile)
+   */
+  renderVo2CDF(result) {
+    // Generate CDF points: percentiles 1-100
+    const percentiles = Array.from({length: 100}, (_, i) => i + 1);
+    const vo2Values = percentiles.map(p => getVo2FromPercentile(result.age, p, result.sex));
 
-    const values = deciles.map(d => {
-      const vo2 = getVo2FromPercentile(result.age, d, result.sex);
-      const hr = getNormalizedFitnessHR(result.age, vo2, result.sex);
-      const q = result.qPop * hr * result.userRiskHR;
-      return +(q * 100).toFixed(5); // percent
-    });
+    // User position
+    const userVo2 = result.vo2Max;
+    const userPercentile = result.friendPercentile;
 
-    const popPct = +(result.qPop * 100).toFixed(5);
+    // Population median (50th percentile)
+    const medianVo2 = getVo2FromPercentile(result.age, 50, result.sex);
 
-    // Highlight nearest decile to user's percentile
-    const userP = Math.round(result.friendPercentile);
-    const nearestIdx = deciles.reduce((bestI, d, i) => Math.abs(d - userP) < Math.abs(deciles[bestI] - userP) ? i : bestI, 0);
+    const ctx = document.getElementById('vo2-cdf-chart').getContext('2d');
+    if (vo2Chart) vo2Chart.destroy();
 
-    const backgroundColors = deciles.map((d, i) => i === nearestIdx ? this.getCurrentColor() : this.getBandColor());
-    const borderColors = backgroundColors.map(c => c.replace(/cc?$/, '') );
-
-    const ctx = document.getElementById('mortality-chart').getContext('2d');
-    if (mortalityChart) mortalityChart.destroy();
-
-    mortalityChart = new Chart(ctx, {
-      type: 'bar',
+    vo2Chart = new Chart(ctx, {
+      type: 'scatter',
       data: {
-        labels,
-        datasets: [{
-          label: 'Annual mortality (%)',
-          data: values,
-          backgroundColor: backgroundColors,
-          borderColor: borderColors,
-          borderWidth: 1,
-          borderRadius: 4,
-        }]
+        datasets: [
+          {
+            label: `VO₂ max distribution (${result.sex === 'male' ? 'male' : 'female'}, age ${result.age})`,
+            data: percentiles.map((p, i) => ({ x: p, y: vo2Values[i] })),
+            borderColor: '#7c3aed88',
+            backgroundColor: '#7c3aed20',
+            borderWidth: 2,
+            showLine: true,
+            fill: false,
+            tension: 0.1,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+          },
+          {
+            label: 'Your VO₂ max',
+            data: [{ x: userPercentile, y: userVo2 }],
+            backgroundColor: this.getCurrentColor(),
+            borderColor: this.getCurrentColor(),
+            pointRadius: 8,
+            pointBorderWidth: 2,
+            pointBorderColor: '#fff',
+            showLine: false,
+          },
+          {
+            label: 'Population median (50th percentile)',
+            data: [{ x: 50, y: medianVo2 }],
+            backgroundColor: this.getPopColor(),
+            borderColor: this.getPopColor(),
+            pointRadius: 6,
+            pointBorderWidth: 2,
+            pointBorderColor: '#fff',
+            pointStyle: 'triangle',
+            showLine: false,
+          }
+        ]
       },
       options: {
-        indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
+          legend: { display: true, position: 'top' },
           tooltip: {
             callbacks: {
               label(ctx) {
-                return `Annual mortality: ${ctx.raw.toFixed(5)}%`;
+                const p = ctx.raw.x;
+                const vo2 = ctx.raw.y.toFixed(2);
+                return `${p}th percentile: ${vo2} mL/kg/min`;
               }
             }
           }
         },
         scales: {
           x: {
-            title: { display: true, text: 'Annual mortality probability (%)' },
-            ticks: { callback: v => v.toFixed(4) + '%' }
+            type: 'linear',
+            title: { display: true, text: 'Fitness percentile rank' },
+            min: 0,
+            max: 100,
+            ticks: { stepSize: 10 }
+          },
+          y: {
+            title: { display: true, text: 'VO₂ max (mL/kg/min)' },
+            min: 8,
+            max: Math.max(...vo2Values) + 2
           }
         }
       }
     });
+  },
 
-    // Draw population average dashed line
-    const popLinePlugin = {
-      id: 'popLine_' + Date.now(),
-      afterDraw(chart) {
-        const xScale = chart.scales.x;
-        const yScale = chart.scales.y;
-        if (!xScale || !yScale) return;
-        const x = xScale.getPixelForValue(popPct);
-        const { top, bottom } = yScale;
-        const { ctx: c } = chart;
-        c.save();
-        c.beginPath();
-        c.setLineDash([6,4]);
-        c.moveTo(x, top);
-        c.lineTo(x, bottom);
-        c.strokeStyle = '#64748b';
-        c.lineWidth = 2;
-        c.stroke();
-        c.fillStyle = '#64748b';
-        c.font = '11px sans-serif';
-        c.fillText('Pop. avg', x + 4, top + 14);
-        c.restore();
+  /**
+   * Render mortality CDF: percentile (X) vs annual mortality (Y)
+   * Shows user's mortality and population baseline (50th percentile)
+   */
+  renderMortalityCDF(result) {
+    // Generate mortality CDF points across percentiles
+    const percentiles = Array.from({length: 100}, (_, i) => i + 1);
+    const mortalities = percentiles.map(p => {
+      const vo2 = getVo2FromPercentile(result.age, p, result.sex);
+      const hr = getNormalizedFitnessHR(result.age, vo2, result.sex);
+      const q = result.qPop * hr * result.userRiskHR;
+      return q * 100; // percent
+    });
+
+    // User position
+    const userPercentile = result.friendPercentile;
+    const userMortality = result.qUser * 100;
+
+    // Population baseline (50th percentile, normalized HR = 1.0)
+    const popMortality = result.qPop * 100;
+    const medianVo2 = getVo2FromPercentile(result.age, 50, result.sex);
+    const medianHR = getNormalizedFitnessHR(result.age, medianVo2, result.sex);
+    const medianMortality = result.qPop * medianHR * result.userRiskHR * 100;
+
+    const ctx = document.getElementById('mortality-cdf-chart').getContext('2d');
+    if (mortalityChart) mortalityChart.destroy();
+
+    mortalityChart = new Chart(ctx, {
+      type: 'scatter',
+      data: {
+        datasets: [
+          {
+            label: `Annual mortality distribution (${result.sex === 'male' ? 'male' : 'female'}, age ${result.age})`,
+            data: percentiles.map((p, i) => ({ x: p, y: mortalities[i] })),
+            borderColor: '#dc263588',
+            backgroundColor: '#dc263520',
+            borderWidth: 2,
+            showLine: true,
+            fill: false,
+            tension: 0.1,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+          },
+          {
+            label: 'Your mortality',
+            data: [{ x: userPercentile, y: userMortality }],
+            backgroundColor: this.getCurrentColor(),
+            borderColor: this.getCurrentColor(),
+            pointRadius: 8,
+            pointBorderWidth: 2,
+            pointBorderColor: '#fff',
+            showLine: false,
+          },
+          {
+            label: 'Population baseline (50th percentile)',
+            data: [{ x: 50, y: medianMortality }],
+            backgroundColor: this.getPopColor(),
+            borderColor: this.getPopColor(),
+            pointRadius: 6,
+            pointBorderWidth: 2,
+            pointBorderColor: '#fff',
+            pointStyle: 'triangle',
+            showLine: false,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'top' },
+          tooltip: {
+            callbacks: {
+              label(ctx) {
+                const p = ctx.raw.x;
+                const mort = ctx.raw.y.toFixed(5);
+                return `${p}th percentile: ${mort}%`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            title: { display: true, text: 'Fitness percentile rank' },
+            min: 0,
+            max: 100,
+            ticks: { stepSize: 10 }
+          },
+          y: {
+            title: { display: true, text: 'Annual mortality probability (%)' },
+            min: 0,
+            max: Math.max(...mortalities) * 1.1
+          }
+        }
       }
-    };
-    Chart.register(popLinePlugin);
+    });
   }
 };

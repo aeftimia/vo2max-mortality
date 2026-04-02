@@ -251,7 +251,7 @@ tr.current-row td {
 .cat-dot.cat-Elite    { background: var(--c-elite); }
 
 /* ─── Chart ─────────────────────────────────────────────────────────────── */
-.chart-container { height: 220px; margin: 1.2rem 0; }
+.chart-container { height: 320px; margin: 1.2rem 0; }
 
 /* ─── Equivalents ───────────────────────────────────────────────────────── */
 #equivalents-container {

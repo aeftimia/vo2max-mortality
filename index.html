@@ -86,15 +86,25 @@
       <div id="risk-breakdown"></div>
     </div>
 
-    <!-- Chart + Table -->
+
+    <!-- CDF Charts -->
     <div class="card">
-      <h2>Annual mortality by fitness category</h2>
-      <p class="muted small">Estimated for your age, sex, and health conditions.
-         Purple bar = your current level. Dashed line = population average.
-         Error bars show plausible range from HR confidence intervals.</p>
+      <h2>VO₂ max distribution</h2>
+      <p class="muted small">Shows where you stand (teal dot) relative to the population distribution.
+         Triangle = population median (50th percentile).</p>
       <div class="chart-container">
-        <canvas id="mortality-chart" role="img"
-                aria-label="Bar chart of annual mortality by fitness category"></canvas>
+        <canvas id="vo2-cdf-chart" role="img"
+                aria-label="CDF of VO₂ max by fitness percentile"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Annual mortality distribution by fitness</h2>
+      <p class="muted small">Shows your mortality risk (teal dot) compared to the population distribution for your age and sex.
+         Triangle = population baseline (50th percentile with your health conditions).</p>
+      <div class="chart-container">
+        <canvas id="mortality-cdf-chart" role="img"
+                aria-label="CDF of annual mortality by fitness percentile"></canvas>
       </div>
 
       <div class="table-wrap">
