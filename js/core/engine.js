@@ -43,10 +43,6 @@
  *   risk-factors.js                  → computeRiskHR(), RISK_EQUIVALENTS
  */
 
-const CATEGORIES = ['Low', 'BelowAvg', 'AboveAvg', 'High', 'Elite'];
-
-// Category labels: use CAT_LABEL from formatter.js (single source of truth)
-
 /**
  * Main computation function.
  *

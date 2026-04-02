@@ -26,7 +26,7 @@ const CITATIONS = {
           'Fitness Registry and the Importance of Exercise National Database (FRIEND). ' +
           'Mayo Clin Proc. 2022;97(2):285–293.',
     doi: '10.1016/j.mayocp.2021.08.020',
-    url: 'https://www.mayoclinicproceedings.org/article/S0025-6196(21)00682-3/fulltext',
+    url: 'https://www.mayoclinicproceedings.org/article/S0025-6196(21)00645-5/fulltext',
   },
   ssaLifeTable: {
     short: 'SSA Period Life Table, 2022',
@@ -37,8 +37,8 @@ const CITATIONS = {
   nvss2022: {
     short: 'CDC NVSS Life Tables, 2022',
     full: 'Arias E, Xu JQ. United States Life Tables, 2022. National Vital ' +
-          'Statistics Reports, Vol. 73, No. 12. Hyattsville, MD: NCHS. 2024.',
-    url: 'https://www.cdc.gov/nchs/data/nvsr/nvsr73/nvsr73-12.pdf',
+          'Statistics Reports, Vol. 74, No. 2. Hyattsville, MD: NCHS. 2025.',
+    url: 'https://www.cdc.gov/nchs/data/nvsr/nvsr74/nvsr74-02.pdf',
   },
   seshasai2011: {
     short: 'Seshasai 2011',

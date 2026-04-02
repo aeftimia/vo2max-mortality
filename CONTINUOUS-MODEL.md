@@ -1,269 +1,72 @@
-# Continuous VO₂ Max Fitness Model - Implementation Guide
+# Continuous VO₂ Max Fitness Model
 
 ## Overview
 
-The VO₂ Max Mortality Calculator has been upgraded from a 5-bin categorical model to a **smooth, continuous fitness model** based on:
+The calculator uses a **continuous fitness model** combining:
 
-- **FRIEND 2022 VO₂ max percentile norms** (Kaminsky LA, et al. Mayo Clin Proc. 2022)
-- **Kokkinos 2022 hazard ratio** (HR = 0.86 per +1 MET, 95% CI: 0.85–0.87; J Am Coll Cardiol. 2022)
+- **FRIEND 2022** percentile norms (Kaminsky et al., *Mayo Clin Proc* 2022) — interpolated via monotone quadratic histosplines (age direction) and monotone quadratic splines (percentile direction)
+- **Kokkinos 2022** per-MET hazard ratio (HR = 0.86, 95% CI: 0.85–0.87; *J Am Coll Cardiol* 2022) — applied as a continuous exponential model, normalized so population-average HR = 1.0
+- **SSA 2022** Period Life Tables — baseline mortality
 
-This provides higher resolution, smoother transitions, and better scientific accuracy than the original 5-bin approach.
-
----
-
-## What Changed?
-
-### ✅ What Improved
-- **Continuous hazard function:** Replace discrete categories with smooth spline interpolation
-- **Better percentile matching:** Use FRIEND 2022 norms for percentile display
-- **Precise normalization:** Integral-based population-mean normalization (E[HR] = 1.0 exact)
-- **Robust CI propagation:** Uncertainty bounds from Kokkinos 95% CI (0.85–0.87 per MET)
-
-### ✅ What's Preserved
-- All existing output fields (`computeMortality()` result object)
-- Risk factor multiplication logic
-- Life expectancy calculations
-- SSA 2022 life tables
+For full mathematical derivation, normalization details, and citations, see [methodology.html](methodology.html).
 
 ---
 
-## Files Added
+## File Structure
 
-### Data & Computation
-- **`scripts/fit_friend_splines.py`** — Python script to generate spline coefficients
-  - Fits FRIEND 2022 percentile data with monotone PCHIP splines
-  - Computes k(age, sex) normalization constants via Gaussian quadrature integration
-  - Exports to JSON (friend-2022-continuous.json)
+### Python (data generation)
 
-- **`js/data/friend-2022-continuous.json`** — Compiled data (288 KB)
-  - Metadata with full citations
-  - Normalization constants for 7 age points (24.5, 34.5, ..., 84.5)
-  - Dense grids: VO₂(age, percentile) for ages 20–89, percentiles 1–99
+| File | Purpose |
+|------|---------|
+| `scripts/fit_friend_splines.py` | Fits histosplines (age) + quadratic splines (percentile), computes normalization constants via Gauss-Legendre quadrature, exports JSON |
+| `scripts/test_splines.py` | 23 unit tests: spline interpolation, integration, histospline bin-average preservation, normalization, full model sanity |
 
-### JavaScript Model
-- **`js/data/friend-2022-loader.js`** — Async JSON loader
-  - Fetches `friend-2022-continuous.json`
-  - Populates global `FRIEND_2022_CONTINUOUS` object
-  - Non-blocking with error handling
+### JavaScript (runtime)
 
-- **`js/data/friend-2022-continuous-model.js`** — Core functions
-  - `getNormalizationConstant(age, sex)` → k value
-  - `getVo2FromPercentile(age, percentile, sex)` → VO₂
-  - `getPercentileFromVo2(age, vo2, sex)` → percentile (inverse)
-  - `getNormalizedFitnessHR(age, vo2, sex)` → hazard multiplier
+| File | Purpose |
+|------|---------|
+| `js/data/friend-2022-continuous.json` | Spline coefficients, normalization constants (k, k_lo, k_hi), metadata |
+| `js/data/friend-2022-loader.js` | Fetches JSON (or builds synthetic fallback for file:// protocol) |
+| `js/data/friend-2022-continuous-model.js` | `getVo2FromPercentile()`, `getPercentileFromVo2()`, `getNormalizedFitnessHR()` |
+| `js/core/engine.js` | `computeMortality()` — main calculation entry point |
+| `js/tests/test-continuous-model.js` | Browser-side model tests |
 
-### Testing
-- **`js/tests/test-continuous-model.js`** — Comprehensive test suite
-  - 9 test categories covering data loading, monotonicity, normalization, edge cases
-  - All tests pass ✓
+### JSON structure
 
----
-
-## Files Modified
-
-### Core Engine
-- **`js/core/engine.js`**
-  - Updated `computeMortality()` to use continuous model
-  - Replaced categorical HR logic with `getNormalizedFitnessHR()`
-  - Improved documentation with full Kokkinos citation
-  - Maintains backward compatibility (all existing output fields)
-
-### HTML & Documentation
-- **`index.html`**
-  - Added script imports: loader, continuous-model, test suite
-  - Correct dependency order maintained
-
-- **`methodology.html`**
-  - New section: "Continuous Fitness Model: FRIEND 2022 + Kokkikos 2022"
-  - Full mathematical derivation with LaTeX rendering
-  - Explanation of integral normalization vs. median anchoring
-  - Complete citations with DOIs
-
----
-
-## Mathematical Summary
-
-### Hazard Ratio Formula
-
-$$\text{HR}_{\text{fitness}}(\text{age}, \text{VO}_2, \text{sex}) = k(\text{age}, \text{sex}) \times 0.86^{\text{VO}_2 / 3.5}$$
-
-Where:
-- **0.86 per MET**: Kokkinos et al. 2022 adjusted hazard ratio (J Am Coll Cardiol. 2022;80(6):598–609)
-  - 95% CI: 0.85–0.87 per MET
-  - Consistent across age, sex, race (no interactions)
-  - DOI: 10.1016/j.jacc.2022.05.031
-
-- **k(age, sex)**: Normalization constant
-  - Computed so that E[HR] = 1.0 over population distribution
-  - Ensures population-averaged mortality = SSA baseline
-  - Varies by age: ~6.16 at age 24.5, ~2.63 at age 84.5
-  - Derived from FRIEND 2022 percentile norms integrated over uniform percentile rank
-
-### Why Integration Over Median Anchoring?
-
-The exponential function is **convex**:
-$$\mathbb{E}[0.86^{\text{MET}}] \neq 0.86^{\mathbb{E}[\text{MET}]}$$
-
-Therefore:
-- Anchoring at median alone: introduces systematic bias
-- **Integrating over percentile distribution**: exact population-mean preservation
-- More mathematically rigorous and statistically sound
-
----
-
-## Usage
-
-### For Calculator Users
-No changes needed. The continuous model is transparent:
-- Enter age, sex, VO₂ max as before
-- Get mortality estimates, percentile ranks, life expectancy as before
-- Smoothness and accuracy are improved automatically
-
-### For Developers
-
-#### Load the data (automatic):
-```javascript
-// Data loads asynchronously on page init via friend-2022-loader.js
-// Access via FRIEND_2022_CONTINUOUS global object
 ```
-
-#### Compute fitness hazard:
-```javascript
-const hr = getNormalizedFitnessHR(age, vo2_mlkgmin, sex);
-// Returns hazard multiplier, e.g., 0.5 for high fitness, 2.0 for low
-```
-
-#### Get percentile:
-```javascript
-const percentile = getPercentileFromVo2(age, vo2_mlkgmin, sex);
-// Returns percentile rank (1–99) or null if out of range
-```
-
-#### Full mortality calculation:
-```javascript
-const result = computeMortality({
-  age: 45,
-  sex: 'male',
-  vo2max: 42,
-  riskFactors: ['hypertension']  // optional
-});
-
-console.log(result.qUser);          // annual mortality, e.g., 0.0048
-console.log(result.fitnessHR);      // continuous fitness multiplier
-console.log(result.friendPercentile); // percentile rank
+{
+  metadata: { constants: { HR_per_MET, HR_per_MET_CI, MET_divisor, VO2_floor } },
+  normalization: { male: { "20": {k, k_lo, k_hi}, ... }, female: { ... } },
+  percentile_splines: { male: { "20": {knots, coeffs, values}, ... }, female: { ... } },
+  age_splines: { male: { "10": {knots, coeffs, values}, ... }, female: { ... } }
+}
 ```
 
 ---
 
-## Validation & Testing
+## Key Design Decisions
 
-### Automated Tests
-Run `testContinuousModel()` in browser console:
-```javascript
-testContinuousModel()
-// ✓ Data loading
-// ✓ Normalization constants
-// ✓ VO2 monotonicity
-// ✓ Percentile monotonicity
-// ✓ Hazard ratio sanity
-// ✓ Population-average normalization
-// ✓ Inverse function consistency
-// ✓ Integration with computeMortality()
-// ✓ Edge cases
+1. **Histospline (age direction):** FRIEND reports decade-bin averages, not point values. A monotone quadratic histospline preserves bin integrals exactly while providing smooth interpolation between decades.
+
+2. **Quadratic spline (percentile direction):** C1-continuous monotone piecewise quadratic through 11 knots (p0, p10, ..., p90, p100). Slopes propagated left-to-right for guaranteed continuity.
+
+3. **Physiological bounds:** VO₂ floor at 10 mL/kg/min (Shephard 2009) for p0; mirrored upper bound p100 = p90 + (p90 − p80). Replaces flat extrapolation.
+
+4. **Triple normalization:** Three constants k, k_lo, k_hi per (age, sex) — one per HR-per-MET value (0.86, 0.85, 0.87). Each ensures E[HR] = 1.0 under its own exponential. CI propagation uses matched pairs (HR_lo with k_lo, HR_hi with k_hi).
+
+5. **DRY constants:** HR_per_MET, CI bounds, MET_divisor, and VO2_floor are stored in JSON metadata and read at runtime. No hardcoded values in JS.
+
+---
+
+## Running
+
+```bash
+# Regenerate JSON from FRIEND data
+python scripts/fit_friend_splines.py
+
+# Run Python tests
+python scripts/test_splines.py
+
+# Run browser tests
+# Open index.html, check console for test output
 ```
-
-### Manual Spot Checks
-
-**Age 45, male, VO₂ 42 mL/kg/min:**
-- Continuous model: HR = 0.734, mortality ≈ 0.48% annually
-- FRIEND percentile: ~60th
-
-**Age 70, female, VO₂ 25 mL/kg/min:**
-- Continuous model: HR ≈ 0.92, mortality ≈ 1.2% annually
-- FRIEND percentile: ~50th
-
----
-
-## Performance
-
-- **Data load:** ~100 ms (one-time, async)
-- **getNormalizedFitnessHR():** <1 ms (O(1) lookup + interpolation)
-- **getPercentileFromVo2():** <1 ms (binary search + linear interp)
-- **computeMortality():** <5 ms (full computation including risk factors)
-- **Memory overhead:** <500 KB (JSON + parsed data)
-
----
-
-## Deploying Changes
-
-### Pre-Deployment Checklist
-- [x] All files have correct syntax (node -c verified)
-- [x] JSON structure validated
-- [x] Test suite passes (9/9 tests)
-- [x] Backward compatibility verified
-- [x] Citations complete with DOIs
-- [x] Documentation updated
-
-### Deployment Steps
-1. Add all files to git
-2. Update version number if needed
-3. Run tests one final time: `testContinuousModel()`
-4. Deploy static files to web host
-5. No backend/database changes needed
-
-### Rollback
-If issues arise, the old categorical model can be restored:
-1. Remove new script imports from `index.html`
-2. Revert `engine.js` to use legacy categorical model directly
-3. All other changes are additive and won't interfere
-
----
-
-## Known Limitations
-
-1. **Percentile bounds:** <10th or >90th percentiles use constant extrapolation (conservatively)
-2. **Age bounds:** Users <20 or >89 clamped to nearest decade data
-3. **Simplified CI:** Uses HR bounds; full Bayesian posterior would be more rigorous
-4. **Independence assumption:** Risk factors multiplied (interactions not modeled)
-5. **Static population:** Norms are 2015–2022 data; future cohorts may differ
-
----
-
-## Future Enhancements
-
-1. **Age-stratified HR:** Test if Kokkikos HR varies significantly by age decade
-2. **Bayesian uncertainty:** Full posterior distribution of k and HR parameters
-3. **Interaction modeling:** Explicit comorbidity × fitness interactions
-4. **Race-stratified norms:** FRIEND 2022 includes race; can create separate models
-5. **Sex-specific constant:** Currently uses k(age, sex); could add additional detail
-
----
-
-## References
-
-### Primary Sources
-
-**FRIEND 2022 Percentile Norms:**
-Kaminsky LA, Arena R, Beckerman M, et al. Updated Reference Standards for Cardiorespiratory Fitness Measured with Cardiopulmonary Exercise Testing: Data from the Fitness Registry and the Importance of Exercise National Database (FRIEND). *Mayo Clin Proc.* 2022;97(2):285–293. DOI: 10.1016/j.mayocp.2021.08.020
-
-**Kokkinos 2022 Hazard Ratio:**
-Kokkinos P, Al-Mallah MH, Desai D, et al. Cardiorespiratory Fitness and Mortality Risk Across the Spectra of Age, Race, and Sex. *J Am Coll Cardiol.* 2022;80(6):598–609. DOI: 10.1016/j.jacc.2022.05.031
-
-**SSA Life Tables:**
-Social Security Administration. Period Life Table 2021. https://www.ssa.gov/oact/STATS/table4c6.html
-
----
-
-## Support
-
-For questions or issues:
-- Check `methodology.html` for mathematical details
-- Review code comments for implementation details
-- Run `testContinuousModel()` to diagnose data loading issues
-- Open GitHub issue with example inputs/outputs if reproducing problems
-
----
-
-**Last Updated:** April 2, 2026  
-**Version:** 2.0 (Continuous Model)  
-**Status:** Production Ready ✓

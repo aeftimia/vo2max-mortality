@@ -73,8 +73,7 @@ function getNormalizationConstant(age, sex, variant) {
 
   if (!FRIEND_2022_CONTINUOUS.normalization ||
       !FRIEND_2022_CONTINUOUS.normalization[sex]) {
-    console.error('ERROR: No normalization data for sex=' + sex);
-    return 1.0;
+    throw new Error('No normalization data loaded for sex=' + sex + '. FRIEND 2022 data may not have loaded.');
   }
 
   var k_values = FRIEND_2022_CONTINUOUS.normalization[sex];
@@ -107,7 +106,7 @@ function getNormalizationConstant(age, sex, variant) {
     }
   }
 
-  return 1.0;
+  throw new Error('Failed to interpolate normalization constant for age=' + age + ', sex=' + sex);
 }
 
 /**
@@ -124,8 +123,7 @@ function getNormalizationConstant(age, sex, variant) {
 function getVo2FromPercentile(age, percentile, sex) {
   if (!FRIEND_2022_CONTINUOUS.percentile_splines ||
       !FRIEND_2022_CONTINUOUS.percentile_splines[sex]) {
-    console.error('ERROR: No spline data for sex=' + sex);
-    return 30;
+    throw new Error('No spline data loaded for sex=' + sex + '. FRIEND 2022 data may not have loaded.');
   }
 
   // Clamp age to available range
@@ -133,8 +131,7 @@ function getVo2FromPercentile(age, percentile, sex) {
   var spline = FRIEND_2022_CONTINUOUS.percentile_splines[sex][String(clampedAge)];
 
   if (!spline) {
-    console.error('ERROR: No spline for age=' + clampedAge + ', sex=' + sex);
-    return 30;
+    throw new Error('No spline data for age=' + clampedAge + ', sex=' + sex);
   }
 
   return evalQuadraticSpline(spline, percentile);

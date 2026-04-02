@@ -6,8 +6,23 @@
 
   const dataUrl = 'js/data/friend-2022-continuous.json';
 
+  function showDataWarning(message) {
+    var banner = document.getElementById('data-warning-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'data-warning-banner';
+      banner.style.cssText = 'background:#fff3cd;color:#856404;border:1px solid #ffc107;padding:0.75rem 1rem;margin:0.5rem 0;border-radius:4px;font-size:0.9rem;';
+      var target = document.querySelector('main') || document.body;
+      target.insertBefore(banner, target.firstChild);
+    }
+    banner.textContent = message;
+  }
+
   function handleData(data) {
     Object.assign(window.FRIEND_2022_CONTINUOUS, data);
+    if (data.metadata && data.metadata.model === 'synthetic_fallback') {
+      showDataWarning('⚠ Using approximate synthetic fitness data (FRIEND 2022 data failed to load). Results may be inaccurate. For accurate results, serve this page over HTTP.');
+    }
     console.log('✓ FRIEND 2022 continuous model data loaded');
     console.log('  Metadata:', data.metadata);
     console.log('  Sexes:', Object.keys(data.percentile_splines || data.grids || {}));

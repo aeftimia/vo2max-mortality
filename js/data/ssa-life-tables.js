@@ -86,7 +86,7 @@ function getQx(age, sex) {
  * @returns {number} Expected remaining years of life.
  */
 function lifeExpectancy(startAge, sex, multiplier) {
-  multiplier = multiplier || 1.0;
+  multiplier = (multiplier !== undefined && multiplier !== null) ? multiplier : 1.0;
   let survival = 1.0;
   let years = 0;
   for (let age = Math.floor(startAge); age < 119; age++) {

@@ -90,7 +90,12 @@ const Results = {
 
     // Suggest meaningful moves: adjacent deciles (up/down from current) + extremes
     // Render in ascending percentile order for clarity
-    const currentP = Math.round(getPercentileFromVo2(age, vo2max, sex));
+    const rawPercentile = getPercentileFromVo2(age, vo2max, sex);
+    if (rawPercentile === null) {
+      container.innerHTML = '<p class="equiv-error">Could not determine fitness percentile. FRIEND data may not have loaded.</p>';
+      return;
+    }
+    const currentP = Math.round(rawPercentile);
     const currentDecile = Math.ceil(currentP / 10) * 10;
     
     // Show: decile below (if exists), decile above (if exists), 10th, 90th
@@ -120,6 +125,13 @@ const Results = {
       const deltaQHi = qTargetHi - qUser;
       const [dqA, dqB] = Math.abs(deltaQLo) <= Math.abs(deltaQHi) ? [deltaQLo, deltaQHi] : [deltaQHi, deltaQLo];
       const dqTip = `Plausible range: ${fmtPercent(dqA)} to ${fmtPercent(dqB)}/yr (HR 95% CIs)`;
+
+      // CI range for life expectancy delta
+      const leTargetLo = lifeExpectancy(age, sex, qTargetHi / qPop); // higher q -> lower LE
+      const leTargetHi = lifeExpectancy(age, sex, qTargetLo / qPop);
+      const deltaYearsLo = leTargetLo - leCurrent;
+      const deltaYearsHi = leTargetHi - leCurrent;
+      const leDeltaTip = `Plausible range: ${fmtYears(deltaYearsLo)} to ${fmtYears(deltaYearsHi)} (HR 95% CIs)`;
 
       // Risk equivalents for this deltaQ
       const equivLines = RISK_EQUIVALENTS.map(re => {
@@ -154,7 +166,7 @@ const Results = {
           equivalent to ${avoid}:
         </p>
         <div class="equiv-items">${equivLines}</div>
-        <p class="equiv-le">Life expectancy change: <strong>${fmtYears(deltaYears)}</strong></p>
+        <p class="equiv-le">Life expectancy change: <strong title="${leDeltaTip}" style="cursor:help">${fmtYears(deltaYears)} <span class="equiv-tip">ⓘ</span></strong></p>
       `;
       container.appendChild(card);
     }
@@ -172,19 +184,28 @@ const Results = {
     const vo2Bottom = getVo2FromPercentile(age, 10, sex);
     const leTop = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Top, sex) * userRiskHR) / qPop);
     const leBottom = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Bottom, sex) * userRiskHR) / qPop);
-    
+
+    // CI ranges for top/bottom decile LE
+    const leTopLo = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Top, sex, 'hi') * userRiskHR) / qPop);
+    const leTopHi = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Top, sex, 'lo') * userRiskHR) / qPop);
+    const leBottomLo = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Bottom, sex, 'hi') * userRiskHR) / qPop);
+    const leBottomHi = lifeExpectancy(age, sex, (qPop * getNormalizedFitnessHR(age, vo2Bottom, sex, 'lo') * userRiskHR) / qPop);
+
+    const currentTip = `Plausible range: ${fmtAbsYears(leUserRange.lo)} – ${fmtAbsYears(leUserRange.hi)} years (HR 95% CIs)`;
+    const topDeltaTip = `Plausible range: ${fmtYears(leTopLo - leCurrent)} to ${fmtYears(leTopHi - leCurrent)} (HR 95% CIs)`;
+    const bottomDeltaTip = `Plausible range: ${fmtYears(leBottomLo - leCurrent)} to ${fmtYears(leBottomHi - leCurrent)} (HR 95% CIs)`;
+
     el.innerHTML = `
       Your current fitness level implies a remaining life expectancy of approximately
-      <strong>${fmtAbsYears(leCurrent)}</strong> years (vs. population average of
+      <strong title="${currentTip}" style="cursor:help">${fmtAbsYears(leCurrent)} <span class="equiv-tip">ⓘ</span></strong> years (vs. population average of
       <strong>${fmtAbsYears(lePopulation)}</strong> years).
       <br><br>
       <strong>Fitness impact on life expectancy:</strong><br>
-      If you improved to the <strong>90th percentile</strong> (top decile): <strong>${fmtYears(leTop - leCurrent)}</strong>.<br>
-      If you declined to the <strong>10th percentile</strong> (bottom decile): <strong>${fmtYears(leBottom - leCurrent)}</strong>.
+      If you improved to the <strong>90th percentile</strong> (top decile): <strong title="${topDeltaTip}" style="cursor:help">${fmtYears(leTop - leCurrent)} <span class="equiv-tip">ⓘ</span></strong>.<br>
+      If you declined to the <strong>10th percentile</strong> (bottom decile): <strong title="${bottomDeltaTip}" style="cursor:help">${fmtYears(leBottom - leCurrent)} <span class="equiv-tip">ⓘ</span></strong>.
       <br><br>
-      <span class="small muted">(Based on ${citeLink('ssaLifeTable', 'SSA 2022 life table')} 
-      integration with continuous FRIEND+Kokkinos fitness model. Plausible range from HR 95% CI: ${fmtAbsYears(leUserRange.lo)} to
-      ${fmtAbsYears(leUserRange.hi)} years.)</span>
+      <span class="small muted">(Based on ${citeLink('ssaLifeTable', 'SSA 2022 life table')}
+      integration with continuous FRIEND+Kokkinos fitness model.)</span>
     `;
   },
 

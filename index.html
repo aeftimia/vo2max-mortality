@@ -87,41 +87,15 @@
     </div>
 
 
-    <!-- CDF Charts -->
+    <!-- Combined CDF Chart -->
     <div class="card">
-      <h2>VO₂ max distribution</h2>
-      <p class="muted small">Shows where you stand (teal dot) relative to the population distribution.
-         Triangle = population median (50th percentile).</p>
-      <div class="chart-container">
-        <canvas id="vo2-cdf-chart" role="img"
-                aria-label="CDF of VO₂ max by fitness percentile"></canvas>
+      <h2>Fitness &amp; mortality distribution</h2>
+      <p class="muted small">Shows VO₂ max (purple, left axis) and annual mortality (red, right axis) across fitness percentiles.
+         Teal dots = your position. Triangles = population median (50th percentile).</p>
+      <div class="chart-container" style="height:400px;">
+        <canvas id="combined-cdf-chart" role="img"
+                aria-label="Combined CDF of VO₂ max and annual mortality by fitness percentile"></canvas>
       </div>
-    </div>
-
-    <div class="card">
-      <h2>Annual mortality distribution by fitness</h2>
-      <p class="muted small">Shows your mortality risk (teal dot) compared to the population distribution for your age and sex.
-         Triangle = population baseline (50th percentile with your health conditions).</p>
-      <div class="chart-container">
-        <canvas id="mortality-cdf-chart" role="img"
-                aria-label="CDF of annual mortality by fitness percentile"></canvas>
-      </div>
-
-      <div class="table-wrap">
-        <table aria-label="Mortality by fitness category">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>VO₂ max range*</th>
-              <th>Annual mortality</th>
-            </tr>
-          </thead>
-          <tbody id="mortality-tbody"></tbody>
-        </table>
-      </div>
-      <p class="small muted mt-1">
-        * Mortality computed using the continuous FRIEND 2022 + Kokkinos 2022 model described in methodology. Hover over any risk equivalent number below to see its plausible range.
-      </p>
     </div>
 
     <!-- Risk equivalents -->
