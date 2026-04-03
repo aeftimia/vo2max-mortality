@@ -1,136 +1,136 @@
 /**
- * Mortality Engine (Continuous VO2 Model)
+ * Mortality Engine (Generalized Fitness Model)
  *
- * Core computation linking VO2 max fitness level to absolute annual mortality
- * probability, anchored to SSA 2022 period life tables and Kokkinos 2022
- * continuous hazard ratios (0.86 per +1 MET, 95% CI 0.85–0.87).
+ * Core computation linking a fitness metric (VO2 max or grip strength) to
+ * absolute annual mortality probability, anchored to SSA 2022 period life
+ * tables and metric-specific continuous hazard ratios.
  *
  * MATHEMATICAL APPROACH
- * ─────────────────────
+ * ---------------------
  * 1. Obtain population baseline mortality q_pop from SSA life table.
  *
  * 2. Compute continuous fitness hazard multiplier:
- *      HR_fitness(VO2) = k(age, sex) × 0.86^(VO2 / 3.5)
+ *      HR_fitness(value) = k(age, sex) * hr_per_unit^(value / divisor)
  *
- *    where k(age, sex) is the normalization constant computed such that the
- *    population-averaged HR (integrated over uniform percentile ranks) equals 1.0.
- *    This ensures that the average mortality in the population is preserved.
+ *    where k(age, sex) is the normalization constant ensuring population-
+ *    averaged HR = 1.0.
  *
- *    Reference: Kokkinos P, et al. Cardiorespiratory Fitness and Mortality Risk
- *    Across the Spectra of Age, Race, and Sex. J Am Coll Cardiol. 2022;80(6):598–609.
- *    DOI: 10.1016/j.jacc.2022.05.031
- *    Adjusted HR = 0.86 (95% CI: 0.85–0.87) per +1 MET, consistent across age,
- *    sex, and racial groups.
+ *    VO2 max:       hr_per_unit = 0.86, divisor = 3.5 (Kokkinos 2022)
+ *    Grip strength: hr_per_unit = (1/1.16)^(1/5) [men] or (1/1.20)^(1/5) [women],
+ *                   divisor = 1.0 (Celis-Morales 2018)
  *
- *    The k-constant is derived from FRIEND 2022 percentile norms (Kaminsky LA, et al.
- *    Updated Reference Standards for Cardiorespiratory Fitness Measured with 
- *    Cardiopulmonary Exercise Testing: Data from the Fitness Registry and the 
- *    Importance of Exercise National Database (FRIEND). Mayo Clin Proc. 2022;97(2):285-293.
- *    DOI: 10.1016/j.mayocp.2021.08.020).
+ * 3. User's mortality:
+ *      q_user = q_pop * HR_fitness(value) * HR_risk_factors
  *
- * 3. User's mortality for their current VO2:
- *      q_user = q_pop × HR_fitness(VO2_current) × HR_risk_factors
+ * 4. Excess mortality for hypothetical target:
+ *      dq(target) = q_pop * (HR_fitness(target) - HR_fitness(current)) * HR_risk
  *
- * 4. Excess mortality vs current fitness level (for hypothetical target VO2):
- *      Δq(target) = q_pop × (HR_fitness(VO2_target) - HR_fitness(VO2_current)) × HR_risk_factors
- *
- * 5. Express Δq in risk equivalent units (base jumps, anesthesias, skydives).
+ * 5. Express dq in risk equivalent units.
  *
  * Dependencies (must be loaded before this file):
- *   ssa-life-tables.js               → getQx(), lifeExpectancy()
- *   friend-2022-continuous-model.js  → getNormalizedFitnessHR(), getPercentileFromVo2(), getVo2FromPercentile(), getNormalizationConstant()
- *   friend-2022-continuous-data.js   → FRIEND_2022_CONTINUOUS global
- *   risk-factors.js                  → computeRiskHR(), RISK_EQUIVALENTS
+ *   ssa-life-tables.js     -> getQx(), lifeExpectancy()
+ *   fitness-model.js       -> getNormalizedFitnessHR(), getPercentileFromMetric(),
+ *                             getMetricFromPercentile(), getNormalizationConstant()
+ *   grip-strength-data.js  -> GRIP_STRENGTH_DATA global
+ *   friend-2022-continuous-data.js -> FRIEND_2022_CONTINUOUS global
+ *   risk-factors.js        -> computeRiskHR(), RISK_EQUIVALENTS
  */
 
 /**
  * Main computation function.
  *
  * @param {Object} inputs
- * @param {number}   inputs.age          Integer age (18–99)
+ * @param {number}   inputs.age          Integer age (18-99)
  * @param {'male'|'female'} inputs.sex
- * @param {number}   inputs.vo2max       VO2 max in mL/kg/min
+ * @param {number}   inputs.metricValue  Fitness metric value (VO2 in mL/kg/min or grip in kg)
+ * @param {string}   inputs.metric       Metric ID: 'vo2max' | 'grip'
  * @param {string[]} inputs.riskFactors  Array of selected risk factor IDs
  *
- * @returns {Object} result (see inline documentation below)
+ * @returns {Object} result
  */
 function computeMortality(inputs) {
-  const { age, sex, vo2max, riskFactors } = inputs;
+  var age = inputs.age;
+  var sex = inputs.sex;
+  var metricValue = inputs.metricValue;
+  var metric = inputs.metric || 'vo2max';
+  var riskFactors = inputs.riskFactors;
 
-  // ── Step 1: Population baseline mortality from SSA life table ─────────────
-  const qPop = getQx(age, sex);
+  // Backward compat: accept vo2max field
+  if (metricValue === undefined && inputs.vo2max !== undefined) {
+    metricValue = inputs.vo2max;
+    metric = 'vo2max';
+  }
 
-  // ── Step 2: Fitness hazard multiplier (continuous) ──────────────────────────
-  // HR_fitness = k(age, sex) × 0.86^(VO2 / 3.5)
-  // where k ensures population-averaged HR = 1.0
-  // 
-  // Kokkinos et al. 2022: adjusted HR = 0.86 (95% CI: 0.85–0.87) per +1 MET
-  // Consistent across age, sex, and racial groups.
-  // DOI: 10.1016/j.jacc.2022.05.031
-  const fitnessHR = getNormalizedFitnessHR(age, vo2max, sex);
+  var info = getMetricInfo(metric);
 
-  // ── Step 3: Apply user risk factors ───────────────────────────────────────
-  const userRiskHR = computeRiskHR(riskFactors);
+  // -- Step 1: Population baseline mortality from SSA life table
+  var qPop = getQx(age, sex);
 
-  // ── Step 4: User's personal annual mortality ────────────────────────────────
-  const qUser = qPop * fitnessHR * userRiskHR;
+  // -- Step 2: Fitness hazard multiplier (continuous)
+  var fitnessHR = getNormalizedFitnessHR(age, metricValue, sex, 'central', metric);
 
-  // ── Step 5: Estimate FRIEND percentile for display ────────────────────────
-  const friendPercentile = getPercentileFromVo2(age, vo2max, sex);
-  const friendPercentileDisplay = friendPercentile !== null
-    ? Math.max(1, Math.min(99, Math.round(friendPercentile)))
+  // -- Step 3: Apply user risk factors
+  var userRiskHR = computeRiskHR(riskFactors);
+
+  // -- Step 4: User's personal annual mortality
+  var qUser = qPop * fitnessHR * userRiskHR;
+
+  // -- Step 5: Estimate percentile for display
+  var percentile = getPercentileFromMetric(age, metricValue, sex, metric);
+  var percentileDisplay = percentile !== null
+    ? Math.max(1, Math.min(99, Math.round(percentile)))
     : null;
 
-  // ── Step 6: Continuous-model outputs ───────────────────────────────────────
-  // Compute CI-propagated user ranges and life expectancy under the continuous model.
+  // -- Step 6: CI-propagated ranges and life expectancy
+  var fitnessHR_lo = getNormalizedFitnessHR(age, metricValue, sex, 'lo', metric);
+  var fitnessHR_hi = getNormalizedFitnessHR(age, metricValue, sex, 'hi', metric);
 
-  // Plausible range from Kokkinos CI (HR = 0.86, 95% CI 0.85–0.87 per MET).
-  // Each CI bound uses its own normalization constant so population-avg HR = 1.0
-  // is preserved at every CI level.
-  const fitnessHR_lo = getNormalizedFitnessHR(age, vo2max, sex, 'lo');
-  const fitnessHR_hi = getNormalizedFitnessHR(age, vo2max, sex, 'hi');
-
-  // User's fitness HR plausible range (from Kokkinos CI)
-  // lo/hi are swapped: lower HR-per-MET (0.85) = more protective = lower mortality
-  const qUserRange = {
+  var qUserRange = {
     lo: qPop * fitnessHR_lo * userRiskHR,
     hi: qPop * fitnessHR_hi * userRiskHR,
   };
 
-  // Life expectancy: population and current user
-  const lePopulation = lifeExpectancy(age, sex, 1.0);
-  const leCurrent = lifeExpectancy(age, sex, qUser / qPop);
+  var lePopulation = lifeExpectancy(age, sex, 1.0);
+  var leCurrent = lifeExpectancy(age, sex, qUser / qPop);
 
-  // LE plausible range for user (from qUserRange)
-  const leUserRange = {
-    lo: lifeExpectancy(age, sex, qUserRange.hi / qPop), // higher mortality -> lower LE
+  var leUserRange = {
+    lo: lifeExpectancy(age, sex, qUserRange.hi / qPop),
     hi: lifeExpectancy(age, sex, qUserRange.lo / qPop),
   };
 
-  // ── Step 7: Return results ─────────────────────────────────────────────
+  // -- Step 7: Return results
   return {
-    age, sex, vo2max, riskFactors,
+    age: age, sex: sex, metric: metric, metricValue: metricValue,
+    riskFactors: riskFactors,
 
-    friendPercentile: friendPercentileDisplay,
+    // Backward compat
+    vo2max: metric === 'vo2max' ? metricValue : undefined,
+
+    // Metric info for display
+    metricLabel: info.label,
+    metricUnit: info.unit,
+
+    // Percentile
+    friendPercentile: percentileDisplay,
 
     // Population baseline
-    qPop,
+    qPop: qPop,
 
     // Continuous fitness hazard multiplier
-    fitnessHR,
+    fitnessHR: fitnessHR,
 
     // User's current annual mortality
-    qUser,
+    qUser: qUser,
 
     // Combined user risk HR
-    userRiskHR,
+    userRiskHR: userRiskHR,
 
     // CI-based user ranges
-    qUserRange,
+    qUserRange: qUserRange,
 
     // Life expectancy
-    lePopulation,
-    leCurrent,
-    leUserRange,
+    lePopulation: lePopulation,
+    leCurrent: leCurrent,
+    leUserRange: leUserRange,
   };
 }

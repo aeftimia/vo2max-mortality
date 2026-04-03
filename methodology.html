@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Methodology — VO₂ Max Mortality Calculator</title>
+  <title>Methodology — Fitness & Mortality Calculator</title>
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
@@ -17,7 +17,7 @@
 
 <header class="site-header">
   <nav>
-    <span class="logo">VO₂ Max &amp; Mortality</span>
+    <span class="logo">Fitness &amp; Mortality</span>
     <button class="burger" id="burger" aria-label="Toggle menu" aria-expanded="false">&#9776;</button>
     <div class="nav-links" id="nav-links">
       <a href="index.html">Calculator</a>
@@ -48,13 +48,15 @@
 <h2>Overview</h2>
 
 <p>This calculator estimates how a person's annual all-cause mortality probability
-changes across cardiorespiratory fitness (VO₂ max) levels. The approach has three steps:</p>
+changes across fitness levels. The same mathematical framework applies to both
+supported biomarkers (VO&#x2082; max and grip strength). The approach has three steps:</p>
 <ol>
-  <li><strong>Anchor to population life tables.</strong> The ${citeLink('nvss2022', 'CDC NVSS 2022 US Life Tables')} give the
-    average annual probability of death q(age, sex) for the US population.</li>
-  <li><strong>Apply continuous fitness hazard model.</strong> Using ${citeLink('friend2022', 'FRIEND 2022')} VO₂ max percentile norms
-    and ${citeLink('kokkinos2022', 'Kokkinos et al. 2022')} continuous hazard ratio (0.86 per +1 MET), we compute a smooth,
-    monotone fitness hazard multiplier normalized so that the population-average equals 1.0.</li>
+  <li><strong>Anchor to population life tables.</strong> The
+    <span id="cite-nvss-overview"><!-- JS --></span> give the
+    average annual probability of death \(q(a, s)\) for the US population.</li>
+  <li><strong>Apply continuous fitness hazard model.</strong> Using normative percentile data
+    and published continuous hazard ratios (see table below), we compute a smooth,
+    monotone fitness hazard multiplier normalized so the population average equals 1.0.</li>
   <li><strong>Adjust for the user's risk factors.</strong> Comorbidity hazard ratios from
     large published studies are applied multiplicatively to shift the user's personal estimate.</li>
 </ol>
@@ -62,234 +64,219 @@ changes across cardiorespiratory fitness (VO₂ max) levels. The approach has th
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
-<h2>Primary Studies: FRIEND 2022 & Kokkinos 2022</h2>
+<h2>Biomarker Parameters</h2>
 
-<p id="primary-citation"><!-- filled by JS --></p>
+<p>The calculator supports multiple fitness biomarkers. The mathematical model is identical;
+only the data sources, hazard ratio values, and normative populations differ:</p>
 
-<h3>Study designs and data used here</h3>
-<p>The continuous model implemented in this calculator uses two complementary sources:</p>
-<ul id="study-designs-list"><!-- filled by JS from citations.js --></ul>
-
-<!-- ──────────────────────────────────────────────────────────────────────── -->
-<h2>Data Sources</h2>
-<ul id="data-sources-list"><!-- filled by JS from citations.js --></ul>
-
-<h3>Fitting and normalization</h3>
-<p>The model is constructed as follows:</p>
-<ol>
-  <li><strong>Spline fitting:</strong> FRIEND 2022 publishes VO₂ max percentiles (10th through 90th)
-    by age decade (20–29 through 80–89) and sex. Two spline methods are used to interpolate this data:
-    <ul>
-      <li><strong>Age direction — monotone quadratic histospline:</strong> The published values are
-        treated as bin averages over each age decade (not point estimates at midpoints). A C¹
-        piecewise-quadratic spline is fitted such that the integral over each decade bin exactly
-        reproduces the published value. This is more faithful to how the FRIEND data is reported.
-        Monotonicity (VO₂ decreasing with age) is enforced.</li>
-      <li><strong>Percentile direction — monotone cubic Hermite (PCHIP):</strong> At each
-        integer age, the 9 percentile values (10th–90th) from the age histosplines are extended to the
-        0th and 100th percentile and interpolated with a C¹ monotone piecewise-cubic spline
-        (Fritsch–Carlson algorithm, via scipy's PchipInterpolator) across all 11
-        knots [0, 10, 20, …, 90, 100]:
-        <ul>
-          <li><strong>0th percentile:</strong> Set to ~10 mL/kg/min, the hard physiological floor
-            for ambulatory humans (${citeLink('shephard2009', 'Shephard 2009')}; clinical heart failure
-            literature places the survivable minimum at ~10–12 mL/kg/min).</li>
-          <li><strong>100th percentile:</strong> Extrapolated by mirroring the 80th→90th gap:
-            VO₂(100) = VO₂(90) + [VO₂(90) − VO₂(80)].</li>
-        </ul>
-      </li>
-      <li>Both directions guarantee: monotonicity, C¹ continuity, and exact polynomial integration.
-        Gauss-Legendre quadrature is used for the exponential HR integral over each polynomial piece.</li>
-    </ul>
-  </li>
-
-  <li><strong>Continuous hazard ratio:</strong> Following Kokkinos et al. 2022, the hazard ratio
-    for mortality is:
-    <div class="math-block">
-      $$\mathrm{HR}_{\text{raw}} = 0.86^{\,\mathrm{MET}}, \quad \mathrm{MET} = \mathrm{VO}_2 / 3.5$$
-    </div>
-    This formula is consistent across age, sex, and racial groups (Kokkinos et al. found no
-    significant interactions). The continuous functional form has been shown to fit observational
-    VO₂ max mortality data more accurately than categorical models.</li>
-
-  <li><strong>Population-mean normalization:</strong> To ensure that the population-average fitness
-    hazard multiplier equals 1.0 (preserving the baseline life-table mortality), a normalization
-    constant \(k(\text{age}, \text{sex})\) is computed:
-    <div class="math-block">
-      $$k(a,s) = \frac{1}{\int_0^1 0.86^{\,\mathrm{VO}_2(p,a,s)\,/\,3.5} \, dp}$$
-    </div>
-    where the expectation is taken over a uniform percentile rank \(p \in [0, 1]\) and \(\mathrm{VO}_2(p)\)
-    is the piecewise spline value at percentile \(p\). The integral is computed using
-    16-point Gauss-Legendre quadrature on each polynomial piece.
-    <br><br>
-    Because the normalization constant depends on the HR-per-MET value, three separate constants
-    are precomputed for each (age, sex): one for the central estimate (0.86) and one for each bound
-    of the 95% CI (0.85, 0.87). This ensures that plausible-range calculations maintain the
-    population-average HR = 1.0 property at every CI level.</li>
-
-  <li><strong>Normalized hazard:</strong> The user's fitness hazard multiplier is:
-    <div class="math-block">
-      $$\mathrm{HR}_{\text{fit}}(a, s, \mathrm{VO}_2) = k(a,s) \cdot 0.86^{\,\mathrm{VO}_2 / 3.5}$$
-    </div>
-    This ensures:
-    <ul>
-      <li>At the population-average VO₂ (50th percentile), \(\mathbb{E}[\mathrm{HR}_{\text{fitness}}] = 1.0\).</li>
-      <li>The population-weighted mortality remains anchored to the SSA life table.</li>
-      <li>Individual VO₂ values map smoothly and monotonically to hazard multipliers.</li>
-    </ul>
-  </li>
-</ol>
-
-<h3>Sensitivity: hazard ratio range</h3>
-<p>Kokkinos et al. report the adjusted HR as 0.86 (95% CI: 0.85–0.87) per +1 MET. To propagate
-uncertainty, the calculator computes plausible ranges using each CI bound with its own normalization
-constant (so population-average HR = 1.0 is maintained at every CI level). Note that this is a
-simplified uncertainty propagation; a full Bayesian posterior would require joint modeling of the
-spline parameters and the HR CI.</p>
+<table id="biomarker-table">
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>VO&#x2082; max</th>
+      <th>Grip strength</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Biomarker variable \(B\)</td>
+      <td>VO&#x2082; max (mL/kg/min)</td>
+      <td>Grip strength (kg)</td>
+    </tr>
+    <tr>
+      <td>Normative data</td>
+      <td id="cite-friend-table"><!-- JS --></td>
+      <td id="cite-landi-table"><!-- JS --></td>
+    </tr>
+    <tr>
+      <td>Published percentiles</td>
+      <td>10th&ndash;90th by decile (9 levels)</td>
+      <td>5th, 25th, 50th, 75th, 95th (5 levels)</td>
+    </tr>
+    <tr>
+      <td>Age bins</td>
+      <td>Decades: 20&ndash;29 through 80&ndash;89</td>
+      <td>5-year bins: 18&ndash;24 through 80+</td>
+    </tr>
+    <tr>
+      <td>Normative population</td>
+      <td>US (FRIEND registry)</td>
+      <td>Italian community-dwellers (Lookup 7+)</td>
+    </tr>
+    <tr>
+      <td>HR source</td>
+      <td id="cite-kokkinos-table"><!-- JS --></td>
+      <td id="cite-celis-table"><!-- JS --></td>
+    </tr>
+    <tr>
+      <td>HR per unit \(r(s)\)</td>
+      <td>0.86 per MET (= per 3.5 mL/kg/min)<br>Sex-invariant</td>
+      <td>\((1/1.16)^{1/5}\) per kg (men)<br>\((1/1.20)^{1/5}\) per kg (women)<br>Sex-stratified</td>
+    </tr>
+    <tr>
+      <td>HR 95% CI</td>
+      <td>0.85&ndash;0.87 per MET</td>
+      <td>Men: 1.15&ndash;1.17 per 5 kg lower<br>Women: 1.17&ndash;1.23 per 5 kg lower</td>
+    </tr>
+    <tr>
+      <td>Divisor \(d\)</td>
+      <td>3.5 (MET conversion)</td>
+      <td>1.0 (direct)</td>
+    </tr>
+    <tr>
+      <td>Floor (0th percentile)</td>
+      <td>~10 mL/kg/min (<span id="cite-shephard-table"><!-- JS --></span>)</td>
+      <td>0 kg</td>
+    </tr>
+  </tbody>
+</table>
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
-<h2>Baseline Mortality: ${citeLink('nvss2022', 'US Life Tables 2022')}</h2>
+<h2 id="math">Mathematical Model</h2>
 
-<p id="life-table-source"><!-- filled by JS --></p>
+<p>Let \(B\) denote the biomarker value (VO&#x2082; max or grip strength), and let
+\(r(s)\) denote the per-unit hazard ratio (which may depend on sex \(s\) for grip strength,
+but is sex-invariant for VO&#x2082; max). Let \(d\) be the unit divisor. The model proceeds as follows:</p>
 
-<p>These values are essentially equivalent to the
-<span id="ssa-link"><!-- filled by JS --></span>
-(typically &lt;2% difference at any age), as both derive from the same underlying US mortality data.
-Public domain — US federal government work.</p>
+<h3>Step 1 &mdash; Baseline population mortality</h3>
+<p>Let \(q_{\text{pop}}(a, s)\) = annual mortality probability from the
+<span id="cite-nvss-step1"><!-- JS --></span> for age \(a\)
+and sex \(s\).</p>
 
-
-<!-- ──────────────────────────────────────────────────────────────────────── -->
-<h2 id="math">Mathematical Model: Continuous Fitness Hazard</h2>
-
-<h3>Overview</h3>
-<p>The model uses a continuous, smooth, age/sex-specific fitness hazard function based on:</p>
-
+<h3>Step 2 &mdash; Biomarker percentile conversion</h3>
+<p>For a user with biomarker value \(B\), we estimate their fitness percentile \(p\)
+(relative rank among adults of the same age and sex) using the inverse of fitted
+piecewise-cubic (PCHIP) percentile splines. These are constructed in two stages:</p>
 <ul>
-  <li><strong>FRIEND 2022 normative VO₂ max percentiles:</strong> Age/sex-specific piecewise polynomial
-    splines (monotone quadratic histospline for age, monotone cubic Hermite/PCHIP for percentile) that
-    give VO₂ max at any percentile rank (0–100) for ages 20–89.</li>
-  <li><strong>Kokkinos 2022 hazard ratio:</strong> A constant 0.86 per +1 MET (=+3.5 mL/kg/min VO₂),
-    consistent across age, sex, and race.</li>
-  <li><strong>Integral normalization:</strong> The population-averaged fitness hazard ratio equals
-    exactly 1.0, ensuring the population baseline mortality from SSA life tables is preserved.</li>
+  <li><strong>Age direction &mdash; monotone quadratic histospline:</strong> Published percentile
+    values are treated as bin averages (not point estimates at midpoints). A C&#xb9;
+    piecewise-quadratic is fitted so that the integral over each age bin exactly
+    reproduces the published value. Monotonicity is enforced.</li>
+  <li><strong>Percentile direction &mdash; monotone cubic Hermite (PCHIP):</strong> At each
+    integer age, the percentile values from the age histosplines are extended to the
+    0th and 100th percentile with physiological bounds (see table above for floor values;
+    100th percentile mirrors the gap between the two highest published percentiles).
+    A C&#xb9; monotone piecewise-cubic spline (Fritsch&ndash;Carlson) is fitted through all knots.</li>
+  <li>Both directions guarantee monotonicity, C&#xb9; continuity, and exact polynomial integration.
+    Gauss-Legendre quadrature is used for the exponential HR integral over each polynomial piece.</li>
 </ul>
 
-<h3>Step 1 — Baseline population mortality</h3>
-<p>Let \(q_{\text{pop}}(a, s)\) = mortality probability from the ${citeLink('nvss2022')} for age \(a\)
-and sex \(s\). This is the average annual mortality for the US population.</p>
-
-<h3>Step 2 — Fitness percentile to VO₂ max conversion</h3>
-<p>For a user with VO₂ max \(\text{VO}_2\) mL/kg/min, we estimate their fitness percentile \(p\)
-(relative rank among healthy US adults of the same age and sex) using the inverse of the fitted
-${citeLink('friend2022')} piecewise-cubic (PCHIP) percentile splines. The spline covers the full 0–100
-range with physiological bounds at the extremes (${citeLink('shephard2009', 'Shephard 2009')}).</p>
-
-<h3>Step 3 — Continuous fitness hazard ratio</h3>
-<p>The ${citeLink('kokkinos2022')} hazard ratio is \(\mathrm{HR} = 0.86^{\text{MET}}\), where
-\(\text{MET} = \text{VO}_2 / 3.5\). This gives the relative mortality risk compared to some reference.</p>
-
-<p>To normalize so the population-average hazard equals 1.0, we integrate over the uniform percentile
-distribution:</p>
+<h3>Step 3 &mdash; Continuous fitness hazard ratio</h3>
+<p>The raw hazard ratio as a function of biomarker value \(B\) is:</p>
 
 <div class="math-block">
-$$\bar{H}(a,s) = \int_0^1 0.86^{\,\mathrm{MET}(p,a,s)} \, dp$$
+$$\mathrm{HR}_{\text{raw}}(B, s) = r(s)^{\,B/d}$$
 </div>
 
-<p>The normalization constant is \(k(a,s) = 1 / \bar{H}(a,s)\). This is pre-computed offline for all
-ages 20–89 and both sexes.</p>
+<p>where \(r(s)\) is the per-unit hazard ratio (protective direction, &lt;1) and \(d\) is the
+unit divisor. For VO&#x2082; max, \(r = 0.86\) and \(d = 3.5\) (so the exponent is METs).
+For grip strength, \(r(s) = (1/\mathrm{HR}_{\text{per 5kg lower}}(s))^{1/5}\) and \(d = 1\).</p>
 
-<p>The user's normalized fitness hazard at VO₂ max \(\text{VO}_2\) is:</p>
+<h3>Step 4 &mdash; Population-mean normalization</h3>
+<p>To ensure the population-average fitness hazard equals 1.0 (preserving the baseline
+life-table mortality), we compute a normalization constant:</p>
 
 <div class="math-block">
-$$\mathrm{HR}_{\text{fit}}(a, s, \mathrm{VO}_2) = k(a,s) \cdot 0.86^{\,\mathrm{VO}_2 / 3.5}$$
+$$k(a,s) = \frac{1}{\displaystyle\int_0^1 r(s)^{\,B(p,a,s)/d}\, dp}$$
 </div>
+
+<p>where \(B(p,a,s)\) is the biomarker value at percentile \(p\) from the fitted splines.
+The integral is evaluated using 16-point Gauss-Legendre quadrature on each polynomial piece.</p>
+
+<p>Three separate normalization constants are precomputed per (age, sex): one for the central
+HR estimate and one for each 95% CI bound, ensuring population-average HR = 1.0 at every CI level.</p>
+
+<p>The user's normalized fitness hazard is then:</p>
+
+<div class="math-block">
+$$\mathrm{HR}_{\text{fit}}(a, s, B) = k(a,s) \cdot r(s)^{\,B/d}$$
+</div>
+
+<p>This ensures:</p>
+<ul>
+  <li>The population-weighted average \(\mathbb{E}[\mathrm{HR}_{\text{fit}}] = 1.0\) exactly.</li>
+  <li>Individual biomarker values map smoothly and monotonically to hazard multipliers.</li>
+  <li>Population baseline mortality from SSA life tables is preserved.</li>
+</ul>
 
 <p><strong>Why integrate rather than anchor at the median?</strong> Because the exponential function
-is strictly convex, \(E[0.86^{\text{MET}}] \neq 0.86^{E[\text{MET}]}\). Integrating over the full
-percentile distribution preserves the actual population mean and ensures the population-average
-mortality hazard equals exactly 1.0. This is more statistically rigorous than anchoring at a single
-percentile.</p>
+is strictly convex, \(\mathbb{E}[r^{B/d}] \neq r^{\mathbb{E}[B]/d}\). Integrating over the full
+percentile distribution preserves the actual population mean.</p>
 
-<h3>Step 4 — User risk factor adjustment</h3>
+<p><strong>Note on sex-stratified HR (grip strength):</strong> Because \(r(s)\) differs between men
+and women for grip strength, the normalization constant \(k(a,s)\) is computed separately per sex
+using that sex's HR value. For VO&#x2082; max, \(r\) is sex-invariant (Kokkinos et al. found no
+significant interactions), so only the percentile distribution differs between sexes.</p>
+
+<h3>Step 5 &mdash; User risk factor adjustment</h3>
 <p>Comorbidity hazard ratios from large cohort studies are applied multiplicatively:</p>
 
 <div class="math-block">
 $$\mathrm{HR}_{\text{user}} = \mathrm{HR}_{\text{fit}} \cdot \prod_i \mathrm{HR}_i$$
 </div>
 
-<p>where the product is over all selected comorbidities (hypertension, diabetes, smoking, etc.).
+<p>where the product is over all selected comorbidities.
 <strong>Independence assumption:</strong> This assumes comorbidities multiply independently, which is
-a simplification — real interactions are often more complex.</p>
+a simplification.</p>
 
-<h3>Step 5 — User's annual mortality</h3>
+<h3>Step 6 &mdash; User's annual mortality</h3>
 
 <div class="math-block">
 $$q_{\text{user}}(a, s) = q_{\text{pop}}(a, s) \cdot \mathrm{HR}_{\text{user}}$$
 </div>
 
-<p>This is the user's estimated annual probability of death at age \(a\).</p>
+<h3>Step 7 &mdash; Plausible range from HR confidence intervals</h3>
 
-<h3>Step 6 — Plausible range from hazard ratio confidence intervals</h3>
-
-<p>The ${citeLink('kokkinos2022')} 95% CI is 0.85–0.87 per MET. Each CI bound uses its own
-normalization constant so that the population-average HR = 1.0 property is maintained at every
-CI level:</p>
+<p>Each CI bound of the published hazard ratio uses its own normalization constant, so
+population-average HR = 1.0 is maintained at every CI level:</p>
 
 <div class="math-block">
-$$\mathrm{HR}_{\text{lo}} = k_{0.85}(a,s) \cdot 0.85^{\,\mathrm{MET}}, \quad \mathrm{HR}_{\text{hi}} = k_{0.87}(a,s) \cdot 0.87^{\,\mathrm{MET}}$$
+$$\mathrm{HR}_{\text{lo}} = k_{\text{lo}}(a,s) \cdot r_{\text{lo}}(s)^{\,B/d}, \quad
+  \mathrm{HR}_{\text{hi}} = k_{\text{hi}}(a,s) \cdot r_{\text{hi}}(s)^{\,B/d}$$
 </div>
 
-<p>where \(k_{0.85}\) and \(k_{0.87}\) are computed analogously to \(k\) but using the respective
-HR-per-MET value. We then compute \(q_{\text{lo}} = q_{\text{pop}} \times \mathrm{HR}_{\text{lo}} \times \mathrm{HR}_{\text{user}}\) and similarly for hi.
-The displayed range is labeled "plausible" rather than "95% CI" because this simultaneous variation is conservative.</p>
+<p>The displayed range is labeled "plausible" rather than "95% CI" because this is a
+simplified uncertainty propagation.</p>
 
-<h3>Step 7 — Life expectancy</h3>
+<h3>Step 8 &mdash; Life expectancy</h3>
 
-<p>For the user's current mortality multiplier \(m = \mathrm{HR}_{\text{user}}\), the remaining life
+<p>For the user's mortality multiplier \(m = \mathrm{HR}_{\text{user}}\), remaining life
 expectancy from age \(a\) is:</p>
 
 <div class="math-block">
 $$\mathrm{LE} = \sum_{x=a}^{118} \prod_{t=a}^{x} \bigl(1 - \min(m \cdot q_{\text{pop}}(t,s),\; 1)\bigr)$$
 </div>
 
-<p>(This is the standard actuarial formula: each term is the probability of surviving to the start of
-year \(x+1\), and each year of survival contributes 1 to the sum.)</p>
+<p>This is the standard actuarial formula. The hazard multiplier is applied uniformly
+across all future ages, assuming the user's relative fitness rank stays constant.
+LE estimates should be interpreted as illustrative comparisons, not clinical predictions.</p>
 
-<p><strong>Life expectancy delta.</strong> The impact of moving to a different fitness level (e.g., 90th
-percentile) is:</p>
+<h3>Step 9 &mdash; Risk equivalents</h3>
 
-<div class="math-block">
-$$\Delta\mathrm{LE} = \mathrm{LE}_{\text{target}} - \mathrm{LE}_{\text{current}}$$
-</div>
-
-<p><strong>Simplifying assumptions and limitations:</strong> We apply the hazard multiplier uniformly
-across all future ages, assuming fitness remains constant for life. In reality, fitness may decline
-with age, and comorbidities interact non-multiplicatively. The LE estimates should be interpreted
-as illustrative comparisons, not clinical predictions of causal benefit.</p>
-
-<h3>Step 8 — Risk equivalents</h3>
-
-<p>Annual excess mortality \(\Delta q = q_{\text{target}} - q_{\text{current}}\) is expressed as the
-number of equivalent annual risky events:</p>
+<p>Annual excess mortality \(\Delta q = q_{\text{target}} - q_{\text{current}}\) is expressed as
+equivalent annual risky events:</p>
 
 <div class="math-block" id="equiv-formulas"><!-- filled by JS --></div>
 
-<p>Interpretation: "Moving from current to target fitness saves/costs the equivalent of N [activity]
-per year." This is a statistical comparison only — it does not imply the activities are equivalent
+<p>This is a statistical comparison only &mdash; it does not imply the activities are equivalent
 in any other sense.</p>
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
-<h2>Peer Comparison: FRIEND Registry</h2>
+<h2>Data Sources</h2>
 
-<p id="friend-citation"><!-- filled by JS --></p>
+<h3>Life tables</h3>
+<p id="life-table-source"><!-- filled by JS --></p>
+<p>These values are essentially equivalent to the
+<span id="ssa-link"><!-- filled by JS --></span>
+(typically &lt;2% difference at any age). Public domain &mdash; US federal government work.</p>
 
-<p>The ${citeLink('friend2022')} provides VO₂ max percentile norms from a large US cohort of directly
-measured cardiopulmonary exercise tests. The calculator uses these percentile ranks to estimate
-where your fitness falls relative to healthy US adults of your age and sex. The percentile <strong>is also
-used in the mortality computation</strong> — it determines your position on the continuous fitness hazard
-curve, which is then scaled by the ${citeLink('kokkinos2022')} hazard ratio.</p>
+<h3>Normative fitness data</h3>
+<ul id="data-sources-list"><!-- filled by JS --></ul>
+
+<h3>Hazard ratio studies</h3>
+<ul id="hr-sources-list"><!-- filled by JS --></ul>
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
@@ -314,61 +301,49 @@ All are all-cause mortality HRs from large prospective studies or meta-analyses.
   <tbody><!-- filled by JS --></tbody>
 </table>
 
-<p>The risk equivalent calculation converts an annual excess mortality fraction Δq into
-N equivalent single-event risks: N = Δq / (mortality per event). For example, if moving
-to a lower fitness category increases your annual mortality by 0.05%, and one base jump
-carries a 0.043% mortality risk, then 0.05% / 0.043% ≈ 1.2 base jumps per year carries
-an equivalent annual mortality burden.</p>
+<p>The risk equivalent calculation converts an annual excess mortality fraction &Delta;q into
+N equivalent single-event risks: N = &Delta;q / (mortality per event).</p>
 
 
 <!-- ──────────────────────────────────────────────────────────────────────── -->
 <h2>Limitations</h2>
 
 <ol>
-  <li><strong>Causality.</strong> Observational hazard ratios from ${citeLink('kokkinos2022')} do not prove
+  <li><strong>Causality.</strong> Observational hazard ratios do not prove
     causation. Low fitness may partly reflect underlying disease (reverse causation) rather than
-    being a modifiable risk factor. Exercise intervention trials show real but smaller
+    being a purely modifiable risk factor. Exercise intervention trials show real but smaller
     mortality benefits than the observational HRs suggest.</li>
 
-  <li><strong>Spline interpolation and extrapolation.</strong> The FRIEND 2022 percentile reference values are
-    fitted with custom monotone splines in both directions to ensure smooth monotonicity. The age
-    direction uses a quadratic histogram-preserving spline (bin-average exact on each decade); percentile uses
-    a monotone cubic Hermite spline (PCHIP/Fritsch-Carlson) with physiological extrapolation: p=0 is fixed at ~10 mL/kg/min (clinical floor for
-    ambulatory humans), and p=100 mirrors the 80th→90th gap. Interpolation between published percentiles
-    (10th–90th) is accurate to within ~0.5 mL/kg/min. These extrapolation assumptions are supported by
-    physiological literature and do not rest on empirical data beyond the published FRIEND table.</li>
+  <li><strong>Spline interpolation and extrapolation.</strong> Normative percentile data are
+    fitted with custom monotone splines in both directions. The age direction uses a quadratic
+    histogram-preserving spline (bin-average exact); the percentile direction uses monotone cubic
+    Hermite (PCHIP/Fritsch&ndash;Carlson) with physiological extrapolation at the tails.
+    Interpolation between published percentiles is accurate to within ~0.5 units.</li>
 
   <li><strong>Risk factor independence.</strong> Multiplying hazard ratios assumes each risk factor's
     effect is independent. Many conditions interact synergistically (e.g., diabetes + hypertension),
     so combined risk estimates may be biased in either direction.</li>
 
-  <li><strong>Hazard ratio consistency across demographics.</strong> The ${citeLink('kokkinos2022')} HR
-    of 0.86 per MET is reported as consistent across age, sex, and racial groups with no significant
-    interactions. While this is reassuring, unmeasured effect modifications in other populations or
-    subgroups may exist.</li>
+  <li><strong>Sex-stratified vs. sex-invariant HR.</strong> The VO&#x2082; max HR
+    (0.86 per MET) is reported as consistent across age, sex, and racial groups. The grip
+    strength HR differs by sex (1.20 per 5 kg for women vs. 1.16 for men). The calculator
+    handles both cases, but unmeasured effect modifications in other subgroups may exist.</li>
 
-  <li><strong>VO₂ max measurement error.</strong> Field estimates from wearables or exercise tests carry
-    ±5–15 mL/kg/min uncertainty, large enough to shift percentile rank by ~10 percentiles. This
-    propagates directly into uncertainty in the fitness hazard multiplier.</li>
+  <li><strong>Measurement error.</strong> Field estimates of VO&#x2082; max from wearables carry
+    &plusmn;5&ndash;15 mL/kg/min uncertainty; grip strength varies with dynamometer type and protocol.
+    This propagates into uncertainty in the fitness hazard multiplier.</li>
 
-  <li><strong>Relative fitness constancy across the life course.</strong> The model applies a fitness
-    hazard multiplier derived from the user's current fitness percentile rank, uniformly to all
-    future ages. The baseline mortality is age-stratified (from SSA life tables). The assumption is
-    that the user's relative fitness rank (percentile) within their age cohort remains stable. In
-    reality, individuals may improve or decline relative to their cohort as they age, or experience
-    major health events that shift their fitness trajectory.</li>
+  <li><strong>Relative fitness constancy.</strong> The model applies the hazard multiplier from the
+    user's current percentile rank uniformly to all future ages. In reality, individuals may
+    improve or decline relative to their age cohort.</li>
 
-  <li><strong>Population generalizability.</strong> The ${citeLink('friend2022')} normative data come from 
-    a large fitness registry with predominantly White participants. The ${citeLink('kokkinos2022')} 
-    hazard ratio (0.86 per MET) was found to be consistent across age, sex, and racial groups, with 
-    no significant interactions. However, the underlying cohorts may not fully represent all 
-    socioeconomic strata, and results may differ in populations with limited access to fitness testing 
-    or in non-US populations.</li>
+  <li><strong>Population generalizability.</strong> VO&#x2082; max norms come from a predominantly White
+    US fitness registry; grip norms from an Italian community sample. Results may differ in other
+    populations. The grip strength HR comes from UK Biobank (ages 40&ndash;69); extrapolation outside
+    this range carries additional uncertainty.</li>
 
   <li><strong>Comorbidity data limitations.</strong> Risk factor HRs are drawn from diverse studies,
-    often non-contemporaneous and using different adjustment methods. Direct comparison assumes
-    consistent methodology, which is not always true.</li>
-
+    often non-contemporaneous and using different adjustment methods.</li>
 </ol>
 
 
@@ -380,113 +355,127 @@ an equivalent annual mortality burden.</p>
 </div><!-- /methodology-body -->
 
 <footer class="site-footer">
-  <p>Open source · MIT License ·
-     <a href="https://github.com/aeftimia/vo2max-mortality" target="_blank" rel="noopener">GitHub</a> ·
+  <p>Open source &middot; MIT License &middot;
+     <a href="https://github.com/aeftimia/vo2max-mortality" target="_blank" rel="noopener">GitHub</a> &middot;
      Not medical advice</p>
 </footer>
 
-<!-- Data files (same as calculator page — single source of truth) -->
+<!-- Data files -->
 <script src="js/data/citations.js"></script>
 <script src="js/data/friend-2022-continuous-data.js"></script>
-<script src="js/data/friend-2022-continuous-model.js"></script>
+<script src="js/data/grip-strength-data.js"></script>
+<script src="js/data/fitness-model.js"></script>
 <script src="js/data/risk-factors.js"></script>
 
 <script>
 (function() {
-  // ── Risk equivalent formulas ─────────────────────────────────────────────────
-  const equivLines = RISK_EQUIVALENTS.map(re => {
-    const invRate = Math.round(1 / re.mortalityPerEvent);
-    return `$$N_{\\small\\text{${re.labelPlural}}} = \\Delta q \\times ${invRate.toLocaleString()}$$`;
+  // ── Inline citation fills ───────────────────────────────────────────────
+  function fillCite(id, key, text) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = citeLink(key, text);
+  }
+  function fillCiteRef(id, key) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = citeRef(key);
+  }
+
+  // Overview
+  fillCite('cite-nvss-overview', 'nvss2022', 'CDC NVSS 2022 US Life Tables');
+
+  // Biomarker table
+  fillCiteRef('cite-friend-table', 'friend2022');
+  fillCiteRef('cite-landi-table', 'landi2020');
+  fillCiteRef('cite-kokkinos-table', 'kokkinos2022');
+  fillCiteRef('cite-celis-table', 'celisMorales2018');
+  fillCite('cite-shephard-table', 'shephard2009', 'Shephard 2009');
+
+  // Math section
+  fillCite('cite-nvss-step1', 'nvss2022', 'CDC NVSS 2022 US Life Tables');
+
+  // ── Risk equivalent formulas ────────────────────────────────────────────
+  var equivLines = RISK_EQUIVALENTS.map(function(re) {
+    var invRate = Math.round(1 / re.mortalityPerEvent);
+    return '$$N_{\\small\\text{' + re.labelPlural + '}} = \\Delta q \\times ' + invRate.toLocaleString() + '$$';
   });
   document.getElementById('equiv-formulas').innerHTML =
-    `$$N = \\Delta q \\;/\\; p_{\\text{activity}}$$\n\n` +
+    '$$N = \\Delta q \\;/\\; p_{\\text{activity}}$$\n\n' +
     equivLines.join('\n\n');
 
-  // ── Overview equiv activities sentence ───────────────────────────────────
-  const actNames = RISK_EQUIVALENTS.map(re => re.labelPlural);
+  // ── Overview equiv activities sentence ──────────────────────────────────
+  var actNames = RISK_EQUIVALENTS.map(function(re) { return re.labelPlural; });
   document.getElementById('overview-equiv-activities').innerHTML =
-    `Excess mortality between fitness levels is then expressed as equivalent annual ` +
-    `occurrences of risky activities (${actNames.join(', ')}).`;
+    'Excess mortality between fitness levels is then expressed as equivalent annual ' +
+    'occurrences of risky activities (' + actNames.join(', ') + ').';
 
-  // ── Life table source ────────────────────────────────────────────────────
-  const nvss = CITATIONS.nvss2022;
+  // ── Life table source ───────────────────────────────────────────────────
+  var nvss = CITATIONS.nvss2022;
   document.getElementById('life-table-source').innerHTML =
-    `<strong>Source:</strong> The q(x) values — probability of dying within one year at exact age x — ` +
-    `come from the ${citeLink('nvss2022', nvss.full.split('.').slice(0, 2).join('.'))}. ` +
-    `All integer ages 0–99 are transcribed directly from those tables. ` +
-    `Ages 100–119 use log-linear extrapolation anchored at age 99, matching standard actuarial ` +
-    `practice for open-ended intervals.`;
+    '<strong>Source:</strong> The q(x) values \u2014 probability of dying within one year at exact age x \u2014 ' +
+    'come from the ' + citeLink('nvss2022', nvss.full.split('.').slice(0, 2).join('.')) + '. ' +
+    'All integer ages 0\u201399 are transcribed directly. ' +
+    'Ages 100\u2013119 use log-linear extrapolation anchored at age 99.';
 
   document.getElementById('ssa-link').innerHTML =
     citeLink('ssaLifeTable', 'SSA Period Life Table, 2021');
 
-  // ── Risk factor HR table ─────────────────────────────────────────────────
-  const rfTbody = document.querySelector('#risk-factor-table tbody');
-  for (const rf of RISK_FACTORS) {
-    const tr = document.createElement('tr');
-    const cite = CITATIONS[rf.cite];
-    const sourceText = cite ? citeRef(rf.cite) : rf.cite;
-    tr.innerHTML =
-      `<td>${rf.label}</td>` +
-      `<td>${rf.hr.toFixed(2)}</td>` +
-      `<td>${rf.ci[0].toFixed(2)}–${rf.ci[1].toFixed(2)}</td>` +
-      `<td>${sourceText}</td>`;
-    rfTbody.appendChild(tr);
-  }
-
-  // ── Risk equivalents table ───────────────────────────────────────────────
-  const reTbody = document.querySelector('#risk-equiv-table tbody');
-  for (const re of RISK_EQUIVALENTS) {
-    const tr = document.createElement('tr');
-    const invRate = Math.round(1 / re.mortalityPerEvent);
-    const pctRate = (re.mortalityPerEvent * 100).toPrecision(3);
-    const cite = CITATIONS[re.cite];
-    const sourceText = cite ? citeRef(re.cite) : re.cite;
-    tr.innerHTML =
-      `<td>${re.label.charAt(0).toUpperCase() + re.label.slice(1)}</td>` +
-      `<td>~1/${invRate.toLocaleString()} = ${pctRate}%</td>` +
-      `<td>${sourceText}</td>`;
-    reTbody.appendChild(tr);
-  }
-
-  // ── Data sources and study designs (derived from citations.js + JSON constants) ──
-  const constants = (FRIEND_2022_CONTINUOUS.metadata || {}).constants || {};
-  const hrPerMet = constants.HR_per_MET || 0.86;
-  const hrCI = constants.HR_per_MET_CI || [0.85, 0.87];
-  const metDiv = constants.MET_divisor || 3.5;
-  const vo2Floor = constants.VO2_floor || 10;
-
-  const studyDesigns = [
-    { key: 'friend2022', label: 'FRIEND 2022 Percentile Norms',
-      desc: ` The published tables report VO₂ max percentiles (10th–90th, in 10% steps) ` +
-            `stratified by decade (20–29 through 80–89) and sex; these percentile curves ` +
-            `are the basis for the percentiles-to-VO₂ interpolation used by the tool.` },
-    { key: 'kokkinos2022', label: 'Kokkinos 2022 Hazard Ratio',
-      desc: ` This work provides a continuous adjusted hazard ratio of ` +
-            `${hrPerMet} per +1 MET (95% CI ${hrCI[0]}–${hrCI[1]}) which is applied ` +
-            `continuously across VO₂ values (MET = VO₂ / ${metDiv}).` },
-  ];
-  const sdList = document.getElementById('study-designs-list');
-  for (const sd of studyDesigns) {
-    const li = document.createElement('li');
-    li.innerHTML = `<strong>${sd.label}:</strong> ${citeRef(sd.key)}${sd.desc}`;
-    sdList.appendChild(li);
-  }
-
-  const dsList = document.getElementById('data-sources-list');
-  for (const sd of studyDesigns) {
-    const li = document.createElement('li');
-    li.innerHTML = `<strong>${sd.label}:</strong> ${citeRef(sd.key)}`;
+  // ── Normative data sources ──────────────────────────────────────────────
+  var dsList = document.getElementById('data-sources-list');
+  [
+    { key: 'friend2022', label: 'VO\u2082 max \u2014 FRIEND 2022',
+      desc: 'VO\u2082 max percentiles (10th\u201390th) by decade and sex from a US fitness registry.' },
+    { key: 'landi2020', label: 'Grip strength \u2014 Lookup 7+ (Landi 2020)',
+      desc: 'Grip strength percentiles (5th\u201395th) by 5-year age group and sex from 11,331 Italian community-dwellers.' },
+  ].forEach(function(item) {
+    var li = document.createElement('li');
+    li.innerHTML = '<strong>' + item.label + ':</strong> ' + citeRef(item.key) + ' ' + item.desc;
     dsList.appendChild(li);
-  }
+  });
 
-  // ── Full reference list ──────────────────────────────────────────────────
-  const refList = document.getElementById('reference-list');
-  for (const key of Object.keys(CITATIONS)) {
-    const li = document.createElement('li');
+  // ── HR sources ──────────────────────────────────────────────────────────
+  var hrList = document.getElementById('hr-sources-list');
+  [
+    { key: 'kokkinos2022', label: 'VO\u2082 max \u2014 Kokkinos 2022',
+      desc: 'Adjusted HR = 0.86 (95% CI: 0.85\u20130.87) per +1 MET. Sex-invariant.' },
+    { key: 'celisMorales2018', label: 'Grip strength \u2014 Celis-Morales 2018',
+      desc: 'HR per 5 kg lower: 1.16 (1.15\u20131.17) men, 1.20 (1.17\u20131.23) women. Sex-stratified.' },
+  ].forEach(function(item) {
+    var li = document.createElement('li');
+    li.innerHTML = '<strong>' + item.label + ':</strong> ' + citeRef(item.key) + ' ' + item.desc;
+    hrList.appendChild(li);
+  });
+
+  // ── Risk factor HR table ────────────────────────────────────────────────
+  var rfTbody = document.querySelector('#risk-factor-table tbody');
+  RISK_FACTORS.forEach(function(rf) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + rf.label + '</td>' +
+      '<td>' + rf.hr.toFixed(2) + '</td>' +
+      '<td>' + rf.ci[0].toFixed(2) + '\u2013' + rf.ci[1].toFixed(2) + '</td>' +
+      '<td>' + citeRef(rf.cite) + '</td>';
+    rfTbody.appendChild(tr);
+  });
+
+  // ── Risk equivalents table ──────────────────────────────────────────────
+  var reTbody = document.querySelector('#risk-equiv-table tbody');
+  RISK_EQUIVALENTS.forEach(function(re) {
+    var tr = document.createElement('tr');
+    var invRate = Math.round(1 / re.mortalityPerEvent);
+    var pctRate = (re.mortalityPerEvent * 100).toPrecision(3);
+    tr.innerHTML =
+      '<td>' + re.label.charAt(0).toUpperCase() + re.label.slice(1) + '</td>' +
+      '<td>~1/' + invRate.toLocaleString() + ' = ' + pctRate + '%</td>' +
+      '<td>' + citeRef(re.cite) + '</td>';
+    reTbody.appendChild(tr);
+  });
+
+  // ── Full reference list ─────────────────────────────────────────────────
+  var refList = document.getElementById('reference-list');
+  Object.keys(CITATIONS).forEach(function(key) {
+    var li = document.createElement('li');
     li.innerHTML = citeRef(key);
     refList.appendChild(li);
-  }
+  });
 })();
 </script>
 

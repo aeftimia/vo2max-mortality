@@ -315,5 +315,176 @@ function testContinuousModel() {
   return failed === 0;
 }
 
+/**
+ * Test Suite: Grip Strength Model
+ */
+function testGripModel() {
+  console.log('\n' + '='.repeat(70));
+  console.log('TEST SUITE: Grip Strength Model (Lookup 7+ / Celis-Morales 2018)');
+  console.log('='.repeat(70));
+
+  let passed = 0;
+  let failed = 0;
+
+  // ── Test 1: Data loaded ──────────────────────────────────────────────────
+  console.log('\n[1] Data loading...');
+  try {
+    if (!GRIP_STRENGTH_DATA || !GRIP_STRENGTH_DATA.metadata) {
+      throw new Error('GRIP_STRENGTH_DATA not loaded');
+    }
+    if (!GRIP_STRENGTH_DATA.normalization ||
+        !GRIP_STRENGTH_DATA.percentile_splines) {
+      throw new Error('Missing normalization or percentile_splines data');
+    }
+    console.log('  \u2713 Data loaded successfully');
+    console.log(`    Model: ${GRIP_STRENGTH_DATA.metadata.model}`);
+    passed++;
+  } catch (e) {
+    console.error(`  \u2717 ${e.message}`);
+    failed++;
+  }
+
+  // ── Test 2: Sex-stratified HR constants ────────────────────────────────
+  console.log('\n[2] Sex-stratified HR constants...');
+  try {
+    const c = GRIP_STRENGTH_DATA.metadata.constants;
+    if (typeof c.HR_per_unit.male !== 'number' || typeof c.HR_per_unit.female !== 'number') {
+      throw new Error('HR_per_unit not sex-stratified');
+    }
+    // Female HR should be more protective per unit (lower value) since 1.20 > 1.16
+    if (c.HR_per_unit.female >= c.HR_per_unit.male) {
+      throw new Error(`Expected female HR_per_unit < male, got ${c.HR_per_unit.female} vs ${c.HR_per_unit.male}`);
+    }
+    console.log(`  \u2713 HR_per_unit: male=${c.HR_per_unit.male.toFixed(6)}, female=${c.HR_per_unit.female.toFixed(6)}`);
+    passed++;
+  } catch (e) {
+    console.error(`  \u2717 ${e.message}`);
+    failed++;
+  }
+
+  // ── Test 3: Grip lookup monotonicity ────────────────────────────────────
+  console.log('\n[3] Grip lookup monotonicity...');
+  try {
+    let issues = [];
+    for (const sex of ['male', 'female']) {
+      // At fixed percentile, grip should generally decrease with age (after ~40)
+      for (const p of [5, 50, 95]) {
+        let prev_grip = Infinity;
+        for (let age = 50; age <= 85; age += 5) {
+          const grip = getMetricFromPercentile(age, p, sex, 'grip');
+          if (grip > prev_grip + 0.5) {
+            issues.push(`${sex} p${p}: grip increased age ${age-5}\u2192${age} (${prev_grip.toFixed(1)}\u2192${grip.toFixed(1)})`);
+          }
+          prev_grip = grip;
+        }
+      }
+    }
+    if (issues.length === 0) {
+      console.log('  \u2713 Grip decreases monotonically with age (after 50) at tested percentiles');
+      passed++;
+    } else {
+      console.error(`  \u2717 Monotonicity violations: ${issues.join('; ')}`);
+      failed++;
+    }
+  } catch (e) {
+    console.error(`  \u2717 ${e.message}`);
+    failed++;
+  }
+
+  // ── Test 4: HR sanity ──────────────────────────────────────────────────
+  console.log('\n[4] Grip hazard ratio sanity checks...');
+  try {
+    let issues = [];
+    for (const sex of ['male', 'female']) {
+      const hr_low = getNormalizedFitnessHR(50, 20, sex, 'central', 'grip');
+      const hr_high = getNormalizedFitnessHR(50, 40, sex, 'central', 'grip');
+      if (hr_high >= hr_low - 0.001) {
+        issues.push(`${sex}: HR not decreasing with grip (${hr_low.toFixed(3)}\u2192${hr_high.toFixed(3)})`);
+      }
+      if (hr_low < 0.1 || hr_low > 10 || hr_high < 0.1 || hr_high > 10) {
+        issues.push(`${sex}: HR out of range`);
+      }
+    }
+    if (issues.length === 0) {
+      console.log('  \u2713 Stronger grip \u2192 lower HR (both sexes)');
+      passed++;
+    } else {
+      console.error(`  \u2717 ${issues.join('; ')}`);
+      failed++;
+    }
+  } catch (e) {
+    console.error(`  \u2717 ${e.message}`);
+    failed++;
+  }
+
+  // ── Test 5: Population-average normalization ────────────────────────────
+  console.log('\n[5] Population-average HR normalization...');
+  try {
+    let issues = [];
+    for (const sex of ['male', 'female']) {
+      for (const age of [30, 50, 70]) {
+        let hr_sum = 0;
+        const n = 20;
+        for (let i = 0; i < n; i++) {
+          const percentile = (i + 0.5) * (100 / n);
+          const grip = getMetricFromPercentile(age, percentile, sex, 'grip');
+          const hr = getNormalizedFitnessHR(age, grip, sex, 'central', 'grip');
+          hr_sum += hr;
+        }
+        const avg_hr = hr_sum / n;
+        if (avg_hr < 0.95 || avg_hr > 1.05) {
+          issues.push(`${sex} age ${age}: avg HR = ${avg_hr.toFixed(3)}`);
+        }
+      }
+    }
+    if (issues.length === 0) {
+      console.log('  \u2713 Population-averaged HR \u2248 1.0 for grip across all age/sex groups');
+      passed++;
+    } else {
+      console.error(`  \u2717 ${issues.join('; ')}`);
+      failed++;
+    }
+  } catch (e) {
+    console.error(`  \u2717 ${e.message}`);
+    failed++;
+  }
+
+  // ── Test 6: computeMortality with grip ──────────────────────────────────
+  console.log('\n[6] computeMortality() with grip...');
+  try {
+    const result = computeMortality({
+      age: 50,
+      sex: 'male',
+      metricValue: 40,
+      metric: 'grip',
+      riskFactors: []
+    });
+    let issues = [];
+    if (!result.fitnessHR) issues.push('fitnessHR missing');
+    if (result.metric !== 'grip') issues.push(`metric should be 'grip', got '${result.metric}'`);
+    if (!result.metricUnit) issues.push('metricUnit missing');
+    if (result.qUser <= 0) issues.push(`qUser non-positive: ${result.qUser}`);
+    if (issues.length === 0) {
+      console.log(`  \u2713 computeMortality() works for grip`);
+      console.log(`    Age 50 male, grip 40 kg: fitnessHR=${result.fitnessHR.toFixed(3)}, qUser=${(result.qUser*100).toFixed(3)}%`);
+      passed++;
+    } else {
+      console.error(`  \u2717 ${issues.join(', ')}`);
+      failed++;
+    }
+  } catch (e) {
+    console.error(`  \u2717 ${e.message}`);
+    failed++;
+  }
+
+  // ── Summary ──────────────────────────────────────────────────────────────
+  console.log('\n' + '='.repeat(70));
+  console.log(`RESULTS: ${passed} passed, ${failed} failed`);
+  console.log('='.repeat(70) + '\n');
+
+  return failed === 0;
+}
+
 // Export for use in automated tests
 window.testContinuousModel = testContinuousModel;
+window.testGripModel = testGripModel;

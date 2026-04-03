@@ -4,9 +4,10 @@
 
 const Form = {
   getInputs() {
+    const metric = getCurrentMetric();
     const age    = parseInt(document.getElementById('age').value, 10);
     const sex    = document.querySelector('input[name="sex"]:checked')?.value;
-    const vo2max = parseFloat(document.getElementById('vo2max').value);
+    const metricValue = parseFloat(document.getElementById('metric-value').value);
 
     const riskFactors = [];
     document.querySelectorAll('.risk-factor-cb:checked').forEach(cb => {
@@ -19,7 +20,6 @@ const Form = {
     for (const oc of obesityClasses) {
       if (riskFactors.includes(oc)) { obesitySelected = oc; break; }
     }
-    // Remove lower classes if higher is selected
     const cleanedRF = riskFactors.filter(id => {
       if (id.startsWith('obesity_') && id !== obesitySelected) return false;
       return true;
@@ -30,12 +30,13 @@ const Form = {
       cleanedRF.splice(cleanedRF.indexOf('smoking_former'), 1);
     }
 
-    return { age, sex, vo2max, riskFactors: cleanedRF };
+    return { age, sex, metricValue, metric, riskFactors: cleanedRF };
   },
 
   validate(inputs) {
     const errors = [];
-    const { age, sex, vo2max } = inputs;
+    const { age, sex, metricValue, metric } = inputs;
+    const info = getMetricInfo(metric);
 
     if (isNaN(age) || age < 18 || age > 90) {
       errors.push('Age must be between 18 and 90.');
@@ -43,8 +44,8 @@ const Form = {
     if (!sex) {
       errors.push('Please select a sex.');
     }
-    if (isNaN(vo2max) || vo2max < 5 || vo2max > 100) {
-      errors.push('VO₂ max must be between 5 and 100 mL/kg/min.');
+    if (isNaN(metricValue) || metricValue < info.minValue || metricValue > info.maxValue) {
+      errors.push(info.label + ' must be between ' + info.minValue + ' and ' + info.maxValue + ' ' + info.unit + '.');
     }
     return errors;
   },
@@ -100,44 +101,90 @@ const Form = {
     const container = document.getElementById('vo2-methods-list');
     if (!container) return;
     container.innerHTML = `
-      <li><strong>Smartwatch estimate:</strong> Many Garmin, Apple Watch, and Polar devices estimate VO₂ max from heart rate during runs. These are typically within ${citeLink('smartwatch2023', '±5 mL/kg/min')}.</li>
-      <li><strong>${citeLink('cooper1968', 'Cooper 12-minute run test')}:</strong> VO₂ max ≈ (distance in meters − 504.9) / 44.73. Run as far as you can in 12 minutes on a flat surface.</li>
+      <li><strong>Smartwatch estimate:</strong> Many Garmin, Apple Watch, and Polar devices estimate VO\u2082 max from heart rate during runs. These are typically within ${citeLink('smartwatch2023', '\u00b15 mL/kg/min')}.</li>
+      <li><strong>${citeLink('cooper1968', 'Cooper 12-minute run test')}:</strong> VO\u2082 max \u2248 (distance in meters \u2212 504.9) / 44.73. Run as far as you can in 12 minutes on a flat surface.</li>
       <li><strong>${citeLink('kline1987', 'Rockport 1-mile walk test')}:</strong> Walk 1 mile as fast as possible; use published formula with finish time, heart rate, age, sex, and weight.</li>
-      <li><strong>Clinical exercise test (gold standard):</strong> VO₂ max measured directly via ${citeLink('cpet2010', 'cardiopulmonary exercise testing (CPET)')} in a sports medicine lab or cardiologist's office.</li>
+      <li><strong>Clinical exercise test (gold standard):</strong> VO\u2082 max measured directly via ${citeLink('cpet2010', 'cardiopulmonary exercise testing (CPET)')} in a sports medicine lab or cardiologist\u2019s office.</li>
     `;
   },
 
-  updateVO2Placeholder() {
-    var ageEl = document.getElementById('age');
-    var sexEl = document.querySelector('input[name="sex"]:checked');
-    var vo2El = document.getElementById('vo2max');
-    var age = parseInt(ageEl.value, 10);
-    var sex = sexEl ? sexEl.value : null;
-    if (!age || age < 20 || age > 89 || !sex) {
-      vo2El.placeholder = 'e.g. 35';
+  buildGripMethods() {
+    const container = document.getElementById('grip-methods-list');
+    if (!container) return;
+    container.innerHTML = `
+      <li><strong>Hand dynamometer:</strong> Squeeze a calibrated hand dynamometer (e.g., Jamar) as hard as possible with your dominant hand. Best of 2\u20133 attempts. Many gyms and physiotherapy clinics have these.</li>
+      <li><strong>Bathroom scale method:</strong> Place a bathroom scale on a table edge and squeeze with one hand. Not calibrated but gives a rough estimate.</li>
+      <li><strong>Clinical assessment:</strong> Grip strength is routinely measured in geriatric assessments and sports medicine evaluations.</li>
+    `;
+  },
+
+  /** Update metric input label, placeholder, and measurement methods based on selected metric. */
+  updateMetricUI() {
+    const metric = getCurrentMetric();
+    const info = getMetricInfo(metric);
+    const label = document.getElementById('metric-label');
+    const input = document.getElementById('metric-value');
+    const vo2Methods = document.getElementById('vo2-methods-container');
+    const gripMethods = document.getElementById('grip-methods-container');
+
+    if (label) label.textContent = info.inputLabel;
+    if (input) {
+      input.min = info.minValue;
+      input.max = info.maxValue;
+      input.value = '';
+    }
+
+    // Toggle method sections
+    if (vo2Methods) vo2Methods.style.display = metric === 'vo2max' ? '' : 'none';
+    if (gripMethods) gripMethods.style.display = metric === 'grip' ? '' : 'none';
+
+    this.updatePlaceholder();
+
+    // Hide results when switching metrics
+    var results = document.getElementById('results-section');
+    if (results) results.style.display = 'none';
+  },
+
+  updatePlaceholder() {
+    const metric = getCurrentMetric();
+    const info = getMetricInfo(metric);
+    const ageEl = document.getElementById('age');
+    const sexEl = document.querySelector('input[name="sex"]:checked');
+    const input = document.getElementById('metric-value');
+    const age = parseInt(ageEl.value, 10);
+    const sex = sexEl ? sexEl.value : null;
+
+    if (!age || age < info.minAge || age > info.maxAge || !sex) {
+      input.placeholder = info.placeholder;
       return;
     }
     try {
-      var median = getVo2FromPercentile(age, 50, sex);
-      vo2El.placeholder = 'e.g. ' + median.toFixed(1);
+      var median = getMetricFromPercentile(age, 50, sex, metric);
+      input.placeholder = 'e.g. ' + median.toFixed(1);
     } catch (e) {
-      vo2El.placeholder = 'e.g. 35';
+      input.placeholder = info.placeholder;
     }
   },
 
   init() {
     this.buildCheckboxes();
     this.buildVO2Methods();
+    this.buildGripMethods();
 
     document.getElementById('calculate-btn').addEventListener('click', () => this.onSubmit());
     document.getElementById('calculate-form').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.onSubmit();
     });
 
-    // Update VO₂ max placeholder with median when age/sex change
-    document.getElementById('age').addEventListener('input', () => this.updateVO2Placeholder());
+    // Metric toggle
+    document.querySelectorAll('input[name="metric"]').forEach(r => {
+      r.addEventListener('change', () => this.updateMetricUI());
+    });
+
+    // Update placeholder when age/sex change
+    document.getElementById('age').addEventListener('input', () => this.updatePlaceholder());
     document.querySelectorAll('input[name="sex"]').forEach(r => {
-      r.addEventListener('change', () => this.updateVO2Placeholder());
+      r.addEventListener('change', () => this.updatePlaceholder());
     });
 
     // Toggle smoking: disable former if current selected and vice versa
@@ -163,5 +210,8 @@ const Form = {
         }
       });
     });
+
+    // Initialize metric UI state
+    this.updateMetricUI();
   },
 };

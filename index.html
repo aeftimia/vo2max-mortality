@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VO₂ Max Mortality Calculator</title>
-  <meta name="description" content="Evidence-based calculator showing how cardiorespiratory fitness (VO₂ max) affects all-cause mortality risk using a continuous FRIEND+Kokkinos model normalized to SSA life tables.">
+  <title>Fitness & Mortality Calculator</title>
+  <meta name="description" content="Evidence-based calculator showing how fitness metrics (VO2 max, grip strength) affect all-cause mortality risk, normalized to SSA life tables.">
   <link rel="stylesheet" href="css/main.css">
   <!-- Chart.js v4.4.4 -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -13,7 +13,7 @@
 
 <header class="site-header">
   <nav>
-    <span class="logo">VO₂ Max &amp; Mortality</span>
+    <span class="logo">Fitness &amp; Mortality</span>
     <button class="burger" id="burger" aria-label="Toggle menu" aria-expanded="false">&#9776;</button>
     <div class="nav-links" id="nav-links">
       <a href="index.html">Calculator</a>
@@ -32,21 +32,34 @@
 
 <main>
   <div class="page-intro">
-    <h1>VO₂ Max Mortality Calculator</h1>
-    <p>Estimates how your cardiorespiratory fitness level affects annual mortality risk,
-       and expresses the difference in everyday risk units. Uses continuous FRIEND 2022 percentiles and Kokkinos 2022
-       hazard ratios anchored to US life tables. <a href="methodology.html">See full methodology →</a></p>
+    <h1>Fitness & Mortality Calculator</h1>
+    <p>Estimates how your fitness level affects annual mortality risk,
+       and expresses the difference in everyday risk units. Uses continuous
+       percentile norms and published hazard ratios anchored to US life tables.
+       <a href="methodology.html">See full methodology &rarr;</a></p>
   </div>
 
   <!-- ── Input card ──────────────────────────────────────────────────────── -->
   <div class="card" id="calculate-form">
     <h2>Your information</h2>
 
+    <!-- Metric toggle -->
+    <div class="metric-toggle" role="radiogroup" aria-label="Fitness metric">
+      <label class="metric-option">
+        <input type="radio" name="metric" value="vo2max" checked>
+        <span>VO&#x2082; Max</span>
+      </label>
+      <label class="metric-option">
+        <input type="radio" name="metric" value="grip">
+        <span>Grip Strength</span>
+      </label>
+    </div>
+
     <div class="form-grid">
       <div class="field">
         <label for="age">Age</label>
         <input type="number" id="age" min="18" max="90" step="1" placeholder="e.g. 40">
-        <span class="field-hint">18 – 90 years</span>
+        <span class="field-hint">18 &ndash; 90 years</span>
       </div>
 
       <div class="field">
@@ -55,25 +68,34 @@
           <label><input type="radio" name="sex" value="male"> Male</label>
           <label><input type="radio" name="sex" value="female"> Female</label>
         </div>
-        <span class="field-hint">Biological sex (used for actuarial tables and VO₂ norms)</span>
+        <span class="field-hint">Biological sex (used for actuarial tables and fitness norms)</span>
       </div>
 
       <div class="field" style="grid-column: 1 / -1;">
-        <label for="vo2max">VO₂ max (mL/kg/min)</label>
-        <input type="number" id="vo2max" min="5" max="100" step="0.1" placeholder="e.g. 35">
-        <details>
-          <summary>How to estimate your VO₂ max</summary>
-          <ul id="vo2-methods-list" style="font-size:0.875rem; color:#64748b; margin: 0.5rem 0 0 1.2rem; line-height:1.7;">
-          </ul>
-        </details>
+        <label for="metric-value" id="metric-label">VO&#x2082; max (mL/kg/min)</label>
+        <input type="number" id="metric-value" min="5" max="100" step="0.1" placeholder="e.g. 35">
+        <div id="vo2-methods-container">
+          <details>
+            <summary>How to estimate your VO&#x2082; max</summary>
+            <ul id="vo2-methods-list" style="font-size:0.875rem; color:#64748b; margin: 0.5rem 0 0 1.2rem; line-height:1.7;">
+            </ul>
+          </details>
+        </div>
+        <div id="grip-methods-container" style="display:none;">
+          <details>
+            <summary>How to measure grip strength</summary>
+            <ul id="grip-methods-list" style="font-size:0.875rem; color:#64748b; margin: 0.5rem 0 0 1.2rem; line-height:1.7;">
+            </ul>
+          </details>
+        </div>
       </div>
     </div>
 
     <details>
-      <summary>Health conditions (optional — adjusts your baseline mortality)</summary>
+      <summary>Health conditions (optional &mdash; adjusts your baseline mortality)</summary>
       <p style="font-size:0.8rem;color:#64748b;margin:0 0 0.8rem;">
         These shift your personal annual mortality estimate using published hazard ratios.
-        They do <em>not</em> affect the fitness category definitions; the mortality computation uses the continuous FRIEND+Kokkinos model.
+        They do <em>not</em> affect the fitness category definitions; the mortality computation uses the continuous fitness model.
         Applied multiplicatively (independence assumed; see <a href="methodology.html">methodology</a>).
       </p>
       <div class="checkbox-group" id="risk-factor-checkboxes">
@@ -100,11 +122,11 @@
     <!-- Combined CDF Chart -->
     <div class="card">
       <h2 id="chart-heading">Fitness &amp; mortality distribution</h2>
-      <p class="muted small">Shows VO₂ max (purple, left axis) and annual mortality (red, right axis) across fitness percentiles.
+      <p class="muted small" id="chart-description">Shows fitness metric (purple, left axis) and annual mortality (red, right axis) across fitness percentiles.
          Dashed teal line = your position.</p>
       <div class="chart-container">
         <canvas id="combined-cdf-chart" role="img"
-                aria-label="Combined CDF of VO₂ max and annual mortality by fitness percentile"></canvas>
+                aria-label="Combined CDF of fitness metric and annual mortality by fitness percentile"></canvas>
       </div>
     </div>
 
@@ -112,7 +134,7 @@
     <div class="card">
       <h2>What would changing fitness mean?</h2>
       <p class="muted small">Excess annual mortality expressed in equivalent risky activities per year.
-         <a href="methodology.html#equivalents">How these are calculated →</a></p>
+         <a href="methodology.html#equivalents">How these are calculated &rarr;</a></p>
       <div id="equivalents-container"></div>
     </div>
 
@@ -125,7 +147,6 @@
          from your current age to 119, with mortality scaled by the fitness-level HR ratio.
          This is a simplified model; actual life expectancy depends on many factors.</p>
       <script>
-        // Inject citation link from centralized data
         document.addEventListener('DOMContentLoaded', () => {
           const el = document.getElementById('le-source-note');
           if (el) el.innerHTML = el.innerHTML.replace('SSA 2022 Period Life Table',
@@ -139,33 +160,31 @@
       <h2>Important caveats</h2>
       <ul class="caveat-list">
         <li id="caveat-cohort"><strong>Clinical cohort bias.</strong>
-          The underlying studies included patients referred for exercise treadmill testing — a sicker-than-average
-          population. We use only the <em>ratios</em> (hazard ratios) between fitness levels,
-          anchored to general-population life tables. Whether this over- or under-estimates
-          the true benefit depends on whether fitness-related mortality risk is multiplicative
-          (proportional to baseline) or additive (a fixed excess). Under an additive model,
-          the clinical cohort's higher baseline would make the HR <em>closer to 1</em> than in
-          a healthier population, meaning we would <em>underestimate</em> the benefit of
-          fitness. The true answer is unknown; the proportional hazards assumption is standard
-          but imperfect.</li>
+          The underlying studies included patients referred for exercise treadmill testing (VO&#x2082; max)
+          or UK Biobank volunteers (grip strength) &mdash; neither is a random sample. We use only the
+          <em>ratios</em> (hazard ratios) between fitness levels, anchored to general-population life
+          tables. Whether this over- or under-estimates the true benefit depends on whether
+          fitness-related mortality risk is multiplicative (proportional to baseline) or additive.
+          The proportional hazards assumption is standard but imperfect.</li>
         <li><strong>Correlation vs. causation.</strong> Observational HRs do not establish
           causation. Fitness may partly be a biomarker of underlying health rather than a
-          purely modifiable cause of mortality. Intervention RCTs show real but smaller
-          effects than observational HRs.</li>
+          purely modifiable cause of mortality.</li>
         <li><strong>Independence assumption.</strong> Risk factors are applied multiplicatively,
-          assuming independence. Real interactions (e.g., diabetes + CAD) are often synergistic,
+          assuming independence. Real interactions are often synergistic,
           so combined risk may be overestimated or underestimated.</li>
-        <li><strong>Age-constant HRs.</strong> Kokkinos HRs are averaged across a wide age range
-          and applied uniformly here. Fitness benefits may vary by age.</li>
-        <li><strong>VO₂ max measurement error.</strong> Field estimates (wearables, Cooper test)
-          carry ±5–15 mL/kg/min uncertainty, which can shift category classification.</li>
-        <li><strong>Population generalizability.</strong> The underlying study cohorts were predominantly
-          white, middle-aged clinical patients. Results may differ in other populations.</li>
+        <li><strong>Sex-stratified grip strength HR.</strong> Unlike VO&#x2082; max (where Kokkinos 2022 found
+          consistent HRs across sex), grip strength HRs differ by sex (Celis-Morales 2018:
+          1.20 per 5 kg for women vs. 1.16 for men). The calculator accounts for this.</li>
+        <li><strong>Population differences.</strong> VO&#x2082; max norms use US data (FRIEND 2022);
+          grip strength norms use Italian data (Lookup 7+). Percentile rankings may differ
+          across populations.</li>
+        <li><strong>Measurement error.</strong> Field estimates carry uncertainty that can shift
+          percentile classification.</li>
         <li><strong>Not medical advice.</strong> This tool is for educational purposes only.
           Consult your physician before making changes to exercise or health decisions.</li>
       </ul>
       <p class="small muted mt-1">
-        <a href="methodology.html">Full methodology, derivation, and references →</a>
+        <a href="methodology.html">Full methodology, derivation, and references &rarr;</a>
       </p>
     </div>
 
@@ -173,16 +192,17 @@
 </main>
 
 <footer class="site-footer">
-  <p>Open source · MIT License ·
-     <a href="https://github.com/aeftimia/vo2max-mortality" target="_blank" rel="noopener">GitHub</a> ·
-     Not medical advice · Data sources: <a href="methodology.html">see methodology</a></p>
+  <p>Open source &middot; MIT License &middot;
+     <a href="https://github.com/aeftimia/vo2max-mortality" target="_blank" rel="noopener">GitHub</a> &middot;
+     Not medical advice &middot; Data sources: <a href="methodology.html">see methodology</a></p>
 </footer>
 
 <!-- Data files -->
 <script src="js/data/citations.js"></script>
 <script src="js/data/ssa-life-tables.js"></script>
 <script src="js/data/friend-2022-continuous-data.js"></script>
-<script src="js/data/friend-2022-continuous-model.js"></script>
+<script src="js/data/grip-strength-data.js"></script>
+<script src="js/data/fitness-model.js"></script>
 <script src="js/data/risk-factors.js"></script>
 <!-- Core -->
 <script src="js/core/formatter.js"></script>

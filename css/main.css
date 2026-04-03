@@ -447,6 +447,41 @@ tr.current-row td {
 }
 
 /* ─── Utility ────────────────────────────────────────────────────────────── */
+/* ─── Metric toggle ─────────────────────────────────────────────────────── */
+.metric-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 1.2rem;
+  background: var(--bg);
+}
+.metric-option {
+  cursor: pointer;
+  margin: 0;
+}
+.metric-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.metric-option span {
+  display: block;
+  padding: 0.45rem 1.2rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--muted);
+  transition: background .15s, color .15s;
+  border-right: 1px solid var(--border);
+}
+.metric-option:last-child span {
+  border-right: none;
+}
+.metric-option input[type="radio"]:checked + span {
+  background: var(--accent);
+  color: #fff;
+}
+
 .muted { color: var(--muted); }
 .small { font-size: 0.8rem; }
 .mt-1 { margin-top: 0.5rem; }

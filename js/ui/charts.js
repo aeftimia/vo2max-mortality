@@ -1,6 +1,6 @@
 /**
  * Chart rendering using Chart.js — single combined dual-axis chart.
- * Left Y-axis: VO₂ max (mL/kg/min), Right Y-axis: Annual mortality (%).
+ * Left Y-axis: fitness metric value, Right Y-axis: Annual mortality (%).
  * X-axis: Fitness percentile rank.
  * Uses the annotation plugin for a vertical "you are here" line.
  * Dependency: Chart.js loaded via CDN before this file.
@@ -16,25 +16,28 @@ const Charts = {
   },
 
   sampleCurves(result, nPoints) {
+    var metric = result.metric || 'vo2max';
     var percentiles = [];
-    var vo2Values = [];
+    var metricValues = [];
     var mortalities = [];
     for (var i = 0; i <= nPoints; i++) {
       var p = (i / nPoints) * 100;
       percentiles.push(p);
-      var vo2 = getVo2FromPercentile(result.age, p, result.sex);
-      vo2Values.push(vo2);
-      var hr = getNormalizedFitnessHR(result.age, vo2, result.sex);
+      var val = getMetricFromPercentile(result.age, p, result.sex, metric);
+      metricValues.push(val);
+      var hr = getNormalizedFitnessHR(result.age, val, result.sex, 'central', metric);
       var q = result.qPop * hr * result.userRiskHR;
       mortalities.push(q * 100);
     }
-    return { percentiles: percentiles, vo2Values: vo2Values, mortalities: mortalities };
+    return { percentiles: percentiles, metricValues: metricValues, vo2Values: metricValues, mortalities: mortalities };
   },
 
   renderCombined(result) {
+    var metric = result.metric || 'vo2max';
+    var info = getMetricInfo(metric);
     var sampled = this.sampleCurves(result, 500);
     var percentiles = sampled.percentiles;
-    var vo2Values = sampled.vo2Values;
+    var metricValues = sampled.metricValues;
     var mortalities = sampled.mortalities;
 
     var userPercentile = result.friendPercentile;
@@ -42,8 +45,14 @@ const Charts = {
 
     var heading = document.getElementById('chart-heading');
     if (heading) {
-      heading.textContent = 'Fitness & mortality distribution — '
+      heading.textContent = 'Fitness & mortality distribution \u2014 '
         + (result.sex === 'male' ? 'male' : 'female') + ', age ' + result.age;
+    }
+
+    // Update chart description
+    var chartDesc = document.getElementById('chart-description');
+    if (chartDesc) {
+      chartDesc.textContent = 'Shows ' + info.label + ' (purple, left axis) and annual mortality (red, right axis) across fitness percentiles. Dashed teal line = your position.';
     }
 
     var ctx = document.getElementById('combined-cdf-chart').getContext('2d');
@@ -54,8 +63,8 @@ const Charts = {
       data: {
         datasets: [
           {
-            label: 'VO₂ max',
-            data: percentiles.map(function(p, i) { return { x: p, y: vo2Values[i] }; }),
+            label: info.label,
+            data: percentiles.map(function(p, i) { return { x: p, y: metricValues[i] }; }),
             borderColor: '#7c3aed',
             backgroundColor: '#7c3aed20',
             borderWidth: 2,
@@ -64,7 +73,7 @@ const Charts = {
             tension: 0,
             pointRadius: 0,
             pointHoverRadius: 0,
-            yAxisID: 'yVo2',
+            yAxisID: 'yMetric',
           },
           {
             label: 'Annual mortality',
@@ -98,11 +107,10 @@ const Charts = {
                 if (ctx.dataset.yAxisID === 'yMort') {
                   return p + 'th pctl: ' + ctx.raw.y.toFixed(4) + '% annual mortality';
                 }
-                return p + 'th pctl: ' + ctx.raw.y.toFixed(1) + ' mL/kg/min';
+                return p + 'th pctl: ' + ctx.raw.y.toFixed(1) + ' ' + info.unit;
               }
             }
           },
-          // Vertical "you are here" line via inline plugin
           youAreHere: {
             percentile: userPercentile,
             color: currentColor,
@@ -116,14 +124,14 @@ const Charts = {
             max: 100,
             ticks: { stepSize: 10 }
           },
-          yVo2: {
+          yMetric: {
             type: 'linear',
             position: 'left',
-            title: { display: true, text: 'VO₂ max (mL/kg/min)', color: '#7c3aed' },
+            title: { display: true, text: info.label + ' (' + info.unit + ')', color: '#7c3aed' },
             ticks: { color: '#7c3aed' },
             grid: { drawOnChartArea: true },
-            min: 8,
-            max: Math.max.apply(null, vo2Values) + 2,
+            min: Math.max(0, Math.min.apply(null, metricValues) - 2),
+            max: Math.max.apply(null, metricValues) + 2,
           },
           yMort: {
             type: 'linear',
@@ -152,7 +160,6 @@ const Charts = {
           ctx.moveTo(xPixel, chart.chartArea.top);
           ctx.lineTo(xPixel, chart.chartArea.bottom);
           ctx.stroke();
-          // Label
           ctx.setLineDash([]);
           ctx.fillStyle = opts.color || '#0ea5a4';
           ctx.font = 'bold 11px sans-serif';

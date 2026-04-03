@@ -126,6 +126,24 @@ const CITATIONS = {
     doi: '10.3390/technologies8040070',
     url: 'https://doi.org/10.3390/technologies8040070',
   },
+  landi2020: {
+    short: 'Landi 2020 (Lookup 7+)',
+    full: 'Landi F, Calvani R, Tosato M, et al. Normative values of muscle strength ' +
+          'across ages in a "real world" population: results from the Longevity ' +
+          'check-up 7+ project. J Cachexia Sarcopenia Muscle. 2020;11(6):1562-1569.',
+    doi: '10.1002/jcsm.12610',
+    pmc: 'PMC7749608',
+    url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC7749608/',
+  },
+  celisMorales2018: {
+    short: 'Celis-Morales 2018',
+    full: 'Celis-Morales CA, Welsh P, Lyall DM, et al. Associations of grip strength ' +
+          'with cardiovascular, respiratory, and cancer outcomes and all cause mortality: ' +
+          'prospective cohort study of half a million UK Biobank participants. ' +
+          'BMJ. 2018;361:k1651.',
+    doi: '10.1136/bmj.k1651',
+    url: 'https://www.bmj.com/content/361/bmj.k1651',
+  },
 };
 
 /**
