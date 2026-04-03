@@ -261,16 +261,17 @@ def export_model(models, output_file='js/data/grip-strength-data.js'):
     Export spline coefficients as a JS file that sets window.GRIP_STRENGTH_DATA.
     """
     # Precompute hr_per_unit values for metadata
+    # HR_per_unit is the reciprocal of the published "per 5 kg lower" HR.
+    # Combined with divisor=5, this gives: raw_hr = HR_per_unit^(grip/5)
+    # Parallel to VO2's: raw_hr = 0.86^(VO2/3.5)
     hr_per_unit = {}
     hr_per_unit_ci = {}
     for sex in ['male', 'female']:
-        hr_per_unit[sex] = (1.0 / HR_PER_5KG_LOWER[sex]) ** (1.0 / 5.0)
+        hr_per_unit[sex] = 1.0 / HR_PER_5KG_LOWER[sex]
         lo_5kg, hi_5kg = HR_PER_5KG_LOWER_CI[sex]
-        # Note: higher HR_per_5kg_lower means more harmful per kg lower
-        # So the CI for hr_per_unit (protective direction) is inverted
         hr_per_unit_ci[sex] = [
-            (1.0 / hi_5kg) ** (1.0 / 5.0),  # lo bound (less protective)
-            (1.0 / lo_5kg) ** (1.0 / 5.0),   # hi bound (more protective)
+            1.0 / hi_5kg,  # lo bound (less protective)
+            1.0 / lo_5kg,  # hi bound (more protective)
         ]
 
     export_data = {
@@ -319,7 +320,7 @@ def export_model(models, output_file='js/data/grip-strength-data.js'):
                     'male': [round(v, 10) for v in hr_per_unit_ci['male']],
                     'female': [round(v, 10) for v in hr_per_unit_ci['female']],
                 },
-                'unit_divisor': 5,
+                'unit_divisor': 5.0,
                 'floor': GRIP_FLOOR,
             }
         },

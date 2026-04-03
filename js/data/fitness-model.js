@@ -74,7 +74,8 @@ var METRIC_REGISTRY = {
     sexStratifiedHR: true,
     /**
      * Get HR per unit for grip. Sex-stratified.
-     * raw_hr = hr_per_unit^grip  where hr_per_unit = (1/HR_per_5kg)^(1/5)
+     * raw_hr = hr_per_unit^(grip/5)  where hr_per_unit = 1/HR_per_5kg_lower
+     * Parallel to VO2: raw_hr = 0.86^(VO2/3.5)
      */
     getHRParams: function(sex, ciVariant) {
       var c = GRIP_STRENGTH_DATA.metadata.constants;
@@ -86,7 +87,7 @@ var METRIC_REGISTRY = {
       } else {
         hr = c.HR_per_unit[sex]; kVar = 'k';
       }
-      return { hr_per_unit: hr, divisor: 1.0, k_variant: kVar };
+      return { hr_per_unit: hr, divisor: c.unit_divisor, k_variant: kVar };
     },
   },
 };
