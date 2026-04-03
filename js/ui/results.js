@@ -62,11 +62,12 @@ const Results = {
       return;
     }
     const currentP = Math.round(rawPercentile);
-    const currentDecile = Math.ceil(currentP / 10) * 10;
 
     const targets = [];
-    if (currentDecile > 10) targets.push(currentDecile - 10);
-    if (currentDecile < 90) targets.push(currentDecile + 10);
+    const down10 = currentP - 10;
+    const up10 = currentP + 10;
+    if (down10 > 10) targets.push(down10);
+    if (up10 < 90) targets.push(up10);
     if (currentP > 15) targets.push(10);
     if (currentP < 85) targets.push(90);
 
@@ -157,18 +158,22 @@ const Results = {
     }
 
     const comparisons = [];
-    const targets = [
-      { p: 90, labelUp: 'improved to the <strong>90th percentile</strong> (top decile)' },
-      { p: 10, labelDown: 'declined to the <strong>10th percentile</strong> (bottom decile)' },
-    ];
+    const currentP = Math.round(friendPercentile);
+    const leTargets = [];
+    if (currentP > 15) leTargets.push({ p: 10, labelDown: 'declined to the <strong>10th percentile</strong> (bottom decile)' });
+    if (currentP < 85) leTargets.push({ p: 90, labelUp: 'improved to the <strong>90th percentile</strong> (top decile)' });
+    const down10 = currentP - 10;
+    const up10 = currentP + 10;
+    if (down10 > 10) leTargets.push({ p: down10 });
+    if (up10 < 90) leTargets.push({ p: up10 });
 
-    for (const t of targets) {
-      if (Math.abs(t.p - friendPercentile) < 3) continue;
+    for (const t of leTargets) {
+      if (Math.abs(t.p - currentP) < 5) continue;
       const le = leAtPercentile(t.p);
       const delta = le - leCurrent;
       const ci = leCIRange(t.p);
       const tip = `Plausible range: ${fmtYears(ci.lo - leCurrent)} to ${fmtYears(ci.hi - leCurrent)} (HR 95% CIs)`;
-      const label = t.p > friendPercentile
+      const label = t.p > currentP
         ? (t.labelUp || `improved to the <strong>${t.p}th percentile</strong>`)
         : (t.labelDown || `declined to the <strong>${t.p}th percentile</strong>`);
       comparisons.push(
