@@ -135,25 +135,22 @@ only the data sources, hazard ratio values, and normative populations differ:</p
 <!-- ──────────────────────────────────────────────────────────────────────── -->
 <h2 id="math">Mathematical Model</h2>
 
-<p>The equations below use descriptive variable names and apply identically to both biomarkers.
+<p>The equations below apply identically to both biomarkers.
 The specific values of \(\mathrm{HR}_{\mathrm{unit}}\) and \(\mathrm{unit}\) for each biomarker are
 given in the table above.</p>
 
-<h3>Step 1 &mdash; Baseline population mortality</h3>
-<p>\(q_{\mathrm{pop}}(\mathrm{age}, \mathrm{sex})\) is the annual mortality probability from the
-<span id="cite-nvss-step1"><!-- JS --></span>.</p>
-
-<h3>Step 2 &mdash; Biomarker percentile conversion</h3>
-<p>For a user with biomarker value \(\mathrm{biomarker}\) (e.g., VO&#x2082; max in mL/kg/min or
-grip strength in kg), we estimate their fitness percentile using the inverse of fitted
-piecewise-cubic (PCHIP) percentile splines. These are constructed in two stages:</p>
+<h3>Step 1 &mdash; Biomarker quantile conversion</h3>
+<p>Let \(B\) denote the user's biomarker value (e.g., VO&#x2082; max in mL/kg/min or
+grip strength in kg) and \(q \in [0,1]\) a population quantile.
+The quantile distribution of \(B\) is conditioned on age and sex via the interpolation
+scheme described below. The splines are constructed in two stages:</p>
 <ul>
   <li><strong>Age direction &mdash; monotone quadratic histospline:</strong> Published percentile
     values are treated as bin averages (not point estimates at midpoints). A C&#xb9;
     piecewise-quadratic is fitted so that the integral over each age bin exactly
     reproduces the published value. Monotonicity is enforced.</li>
-  <li><strong>Percentile direction &mdash; monotone cubic Hermite (PCHIP):</strong> At each
-    integer age, the percentile values from the age histosplines are extended to the
+  <li><strong>Quantile direction &mdash; monotone cubic Hermite (PCHIP):</strong> At each
+    integer age, the quantile values from the age histosplines are extended to the
     0th and 100th percentile with physiological bounds (see table above for floor values;
     100th percentile mirrors the gap between the two highest published percentiles).
     A C&#xb9; monotone piecewise-cubic spline (Fritsch&ndash;Carlson) is fitted through all knots.</li>
@@ -161,11 +158,11 @@ piecewise-cubic (PCHIP) percentile splines. These are constructed in two stages:
     Gauss-Legendre quadrature is used for the exponential HR integral over each polynomial piece.</li>
 </ul>
 
-<h3>Step 3 &mdash; Continuous fitness hazard ratio</h3>
-<p>The raw hazard ratio as a function of biomarker value is:</p>
+<h3>Step 2 &mdash; Raw fitness hazard ratio</h3>
+<p>The raw (unnormalized) hazard ratio as a function of biomarker value is:</p>
 
 <div class="math-block">
-$$\mathrm{HR}_{\mathrm{raw}} = \mathrm{HR}_{\mathrm{unit}}(\mathrm{sex})^{\;\mathrm{biomarker}\,/\,\mathrm{unit}}$$
+$$\mathrm{HR}_{\mathrm{raw}}(B) = \mathrm{HR}_{\mathrm{unit}}(\mathrm{sex})^{\;B\,/\,\mathrm{unit}}$$
 </div>
 
 <p>\(\mathrm{HR}_{\mathrm{unit}}\) is the hazard ratio per standard unit of the biomarker
@@ -175,44 +172,28 @@ For VO&#x2082; max: \(\mathrm{HR}_{\mathrm{unit}} = 0.86\), \(\mathrm{unit} = 3.
 For grip strength: \(\mathrm{HR}_{\mathrm{unit}} = 1/1.16\) (men) or \(1/1.20\) (women),
 \(\mathrm{unit} = 5\) kg.</p>
 
-<h3>Step 4 &mdash; Population-mean normalization</h3>
-<p>To ensure the population-average fitness hazard equals 1.0 (preserving the baseline
-life-table mortality), we compute a normalization constant:</p>
+<h3>Step 3 &mdash; Population-mean normalization</h3>
+<p>To preserve baseline life-table mortality, we normalize so the population-average
+fitness hazard equals 1.0. Since the quantile distribution of \(B\) is conditioned on
+age and sex, the expectation is conditional:</p>
 
 <div class="math-block">
-$$k(\mathrm{age},\mathrm{sex}) = \frac{1}{\displaystyle\int_0^1 \mathrm{HR}_{\mathrm{unit}}(\mathrm{sex})^{\;\mathrm{biomarker}(\mathrm{percentile},\,\mathrm{age},\,\mathrm{sex})\,/\,\mathrm{unit}}\; d\,\mathrm{percentile}}$$
+$$\mathrm{HR}_{\mathrm{fitness}} = \frac{\mathrm{HR}_{\mathrm{raw}}(B)}{\mathbb{E}[\mathrm{HR}_{\mathrm{raw}} \mid \mathrm{age}, \mathrm{sex}]}$$
 </div>
 
-<p>where \(\mathrm{biomarker}(\mathrm{percentile}, \mathrm{age}, \mathrm{sex})\) is the spline-interpolated
-value at a given percentile.
-The integral is evaluated using 16-point Gauss-Legendre quadrature on each polynomial piece.</p>
+<p>This guarantees \(\mathbb{E}[\mathrm{HR}_{\mathrm{fitness}} \mid \mathrm{age}, \mathrm{sex}] = 1\) exactly, so
+population baseline mortality from the life tables is preserved.
+The expectation is evaluated using 16-point Gauss-Legendre quadrature on each polynomial piece of the quantile spline.</p>
 
 <p>Three separate normalization constants are precomputed per (age, sex): one for the central
 HR estimate and one for each 95% CI bound, ensuring population-average HR = 1.0 at every CI level.</p>
 
-<p>The user's normalized fitness hazard is then:</p>
-
-<div class="math-block">
-$$\mathrm{HR}_{\mathrm{fitness}} = k(\mathrm{age},\mathrm{sex}) \cdot \mathrm{HR}_{\mathrm{unit}}(\mathrm{sex})^{\;\mathrm{biomarker}\,/\,\mathrm{unit}}$$
-</div>
-
-<p>This ensures:</p>
-<ul>
-  <li>The population-weighted average \(\mathbb{E}[\mathrm{HR}_{\mathrm{fitness}}] = 1.0\) exactly.</li>
-  <li>Individual biomarker values map smoothly and monotonically to hazard multipliers.</li>
-  <li>Population baseline mortality from SSA life tables is preserved.</li>
-</ul>
-
-<p><strong>Why integrate rather than anchor at the median?</strong> Because the exponential function
-is strictly convex, \(\mathbb{E}[\mathrm{HR}_{\mathrm{unit}}^{\mathrm{biomarker}/\mathrm{unit}}] \neq \mathrm{HR}_{\mathrm{unit}}^{\mathbb{E}[\mathrm{biomarker}]/\mathrm{unit}}\).
-Integrating over the full percentile distribution preserves the actual population mean.</p>
-
 <p><strong>Sex-stratified HR (grip strength):</strong> Because \(\mathrm{HR}_{\mathrm{unit}}\) differs
-between men and women for grip strength, \(k(\mathrm{age},\mathrm{sex})\) is computed separately per sex.
+between men and women for grip strength, normalization is computed separately per sex.
 For VO&#x2082; max, \(\mathrm{HR}_{\mathrm{unit}}\) is sex-invariant (Kokkinos et al. found no
-significant interactions), so only the percentile distribution differs between sexes.</p>
+significant interactions), so only the quantile distribution differs between sexes.</p>
 
-<h3>Step 5 &mdash; User risk factor adjustment</h3>
+<h3>Step 4 &mdash; User risk factor adjustment</h3>
 <p>Comorbidity hazard ratios from large cohort studies are applied multiplicatively:</p>
 
 <div class="math-block">
@@ -222,39 +203,41 @@ $$\mathrm{HR}_{\mathrm{total}} = \mathrm{HR}_{\mathrm{fitness}} \cdot \prod_i \m
 <p><strong>Independence assumption:</strong> This assumes comorbidities multiply independently, which is
 a simplification.</p>
 
-<h3>Step 6 &mdash; User's annual mortality</h3>
+<h3>Step 5 &mdash; User's annual mortality</h3>
+
+<p>Let \(q_{\mathrm{pop}}(\mathrm{age}, \mathrm{sex})\) be the annual mortality probability from the
+<span id="cite-nvss-step1"><!-- JS --></span>. The user's adjusted mortality is:</p>
 
 <div class="math-block">
-$$q_{\mathrm{user}}(\mathrm{age}, \mathrm{sex}) = q_{\mathrm{pop}}(\mathrm{age}, \mathrm{sex}) \cdot \mathrm{HR}_{\mathrm{total}}$$
+$$q_{\mathrm{user}} = q_{\mathrm{pop}}(\mathrm{age}, \mathrm{sex}) \cdot \mathrm{HR}_{\mathrm{total}}$$
 </div>
 
-<h3>Step 7 &mdash; Plausible range from HR confidence intervals</h3>
+<h3>Step 6 &mdash; Plausible range from HR confidence intervals</h3>
 
 <p>Each CI bound of the published hazard ratio uses its own normalization constant, so
 population-average HR = 1.0 is maintained at every CI level:</p>
 
 <div class="math-block">
-$$\mathrm{HR}_{\mathrm{lo}} = k_{\mathrm{lo}} \cdot \mathrm{HR}_{\mathrm{unit,lo}}^{\;\mathrm{biomarker}/\mathrm{unit}}, \quad
-  \mathrm{HR}_{\mathrm{hi}} = k_{\mathrm{hi}} \cdot \mathrm{HR}_{\mathrm{unit,hi}}^{\;\mathrm{biomarker}/\mathrm{unit}}$$
+$$\mathrm{HR}_{\mathrm{lo}} = \frac{\mathrm{HR}_{\mathrm{raw,lo}}(B)}{\mathbb{E}[\mathrm{HR}_{\mathrm{raw,lo}}]}, \quad
+  \mathrm{HR}_{\mathrm{hi}} = \frac{\mathrm{HR}_{\mathrm{raw,hi}}(B)}{\mathbb{E}[\mathrm{HR}_{\mathrm{raw,hi}}]}$$
 </div>
 
 <p>The displayed range is labeled "plausible" rather than "95% CI" because this is a
 simplified uncertainty propagation.</p>
 
-<h3>Step 8 &mdash; Life expectancy</h3>
+<h3>Step 7 &mdash; Life expectancy</h3>
 
-<p>Remaining life expectancy from the user's current age, with mortality scaled by their
-total hazard ratio \(m = \mathrm{HR}_{\mathrm{total}}\):</p>
+<p>Remaining life expectancy from the user's current age:</p>
 
 <div class="math-block">
-$$\mathrm{LE} = \sum_{\mathrm{year}=\mathrm{age}}^{118} \prod_{t=\mathrm{age}}^{\mathrm{year}} \bigl(1 - \min(m \cdot q_{\mathrm{pop}}(t,\mathrm{sex}),\; 1)\bigr)$$
+$$\mathrm{LE} = \sum_{y=\mathrm{age}}^{118} \prod_{t=\mathrm{age}}^{y} \bigl(1 - \min(\mathrm{HR}_{\mathrm{total}} \cdot q_{\mathrm{pop}}(t, \mathrm{sex}),\; 1)\bigr)$$
 </div>
 
 <p>This is the standard actuarial formula. The hazard multiplier is applied uniformly
 across all future ages, assuming the user's relative fitness rank stays constant.
 LE estimates should be interpreted as illustrative comparisons, not clinical predictions.</p>
 
-<h3>Step 9 &mdash; Risk equivalents</h3>
+<h3>Step 8 &mdash; Risk equivalents</h3>
 
 <p>Annual excess mortality \(\Delta q = q_{\mathrm{target}} - q_{\mathrm{current}}\) is expressed as
 equivalent annual risky events:</p>
@@ -418,7 +401,7 @@ N equivalent single-event risks: N = &Delta;q / (mortality per event).</p>
     'Ages 100\u2013119 use log-linear extrapolation anchored at age 99.';
 
   document.getElementById('ssa-link').innerHTML =
-    citeLink('ssaLifeTable', 'SSA Period Life Table, 2021');
+    citeLink('ssaLifeTable', 'SSA Period Life Table, 2022');
 
   // ── Normative data sources ──────────────────────────────────────────────
   var dsList = document.getElementById('data-sources-list');
