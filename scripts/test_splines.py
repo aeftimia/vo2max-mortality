@@ -16,19 +16,28 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fit_friend_splines import (
+from biomarker_model import (
     fit_pchip,
     eval_spline,
     integrate_spline,
-    fit_monotone_histospline,
+    fit_histospline,
     verify_histospline_integrals,
-    build_full_model,
-    get_vo2,
-    compute_normalization_constant,
-    get_age_bin_data,
-    KOKKINOS_HR_PER_MET,
-    FRIEND_2022_DATA,
+    build_model,
+    compute_normalization,
+    parse_age_bins,
 )
+from fit_friend_splines import (
+    FRIEND_2022_DATA,
+    AGE_BIN_SPECS,
+    HR_PER_MET,
+    HR_PER_MET_CI,
+    VO2_FLOOR,
+)
+
+
+def get_vo2(model, age, pct):
+    age = max(20, min(89, age))
+    return eval_spline(model['percentile_splines'][age], pct)
 
 
 # ============================================================================
@@ -205,7 +214,7 @@ class TestHistospline:
         bin_edges = np.array([20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
         bin_values = np.array([50, 45, 40, 35, 30, 25, 20], dtype=float)
 
-        spline = fit_monotone_histospline(bin_edges, bin_values)
+        spline = fit_histospline(bin_edges, bin_values)
         errors = verify_histospline_integrals(spline, bin_edges, bin_values)
         max_err = max(errors)
         assert max_err < 1e-6, f"Bin average error too large: {max_err}"
@@ -215,9 +224,9 @@ class TestHistospline:
     def test_friend_data_bin_averages(self):
         """Histospline on actual FRIEND data must preserve bin averages."""
         for sex in ['male', 'female']:
-            bin_edges, percentiles_data = get_age_bin_data(sex)
+            bin_edges, percentiles_data = parse_age_bins(FRIEND_2022_DATA[sex], AGE_BIN_SPECS)
             for p in sorted(percentiles_data.keys()):
-                spline = fit_monotone_histospline(bin_edges, percentiles_data[p])
+                spline = fit_histospline(bin_edges, percentiles_data[p])
                 errors = verify_histospline_integrals(
                     spline, bin_edges, percentiles_data[p])
                 max_err = max(errors)
@@ -229,9 +238,9 @@ class TestHistospline:
     def test_monotonicity(self):
         """FRIEND data is monotone decreasing with age; histospline must preserve this."""
         for sex in ['male', 'female']:
-            bin_edges, percentiles_data = get_age_bin_data(sex)
+            bin_edges, percentiles_data = parse_age_bins(FRIEND_2022_DATA[sex], AGE_BIN_SPECS)
             for p in sorted(percentiles_data.keys()):
-                spline = fit_monotone_histospline(bin_edges, percentiles_data[p])
+                spline = fit_histospline(bin_edges, percentiles_data[p])
                 xs = np.linspace(bin_edges[0], bin_edges[-1], 1000)
                 vals = eval_spline(spline, xs)
                 diffs = np.diff(vals)
@@ -246,7 +255,7 @@ class TestHistospline:
 
         bin_edges = np.array([20, 30, 40, 50, 60, 70, 80, 90], dtype=float)
         bin_values = np.array([50, 45, 40, 35, 30, 25, 20], dtype=float)
-        spline = fit_monotone_histospline(bin_edges, bin_values)
+        spline = fit_histospline(bin_edges, bin_values)
 
         our_integral = integrate_spline(spline, 20, 90)
         scipy_integral, _ = scipy_quad(
@@ -270,16 +279,16 @@ class TestNormalization:
         from scipy.integrate import quad as scipy_quad
 
         for sex in ['male', 'female']:
-            model = build_full_model(sex)
+            model = build_model(FRIEND_2022_DATA[sex], AGE_BIN_SPECS, VO2_FLOOR, (20, 90))
 
             for age in [25, 45, 65, 85]:
-                k = compute_normalization_constant(model, age)
+                k = compute_normalization(model, age, HR_PER_MET, 3.5)
 
                 # Verify: integral of k * 0.86^(VO2(p)/3.5) over [0,100] / 100 = 1.0
                 def integrand(p):
                     vo2 = eval_spline(
                         model['percentile_splines'][age], p)
-                    return k * KOKKINOS_HR_PER_MET ** (vo2 / 3.5)
+                    return k * HR_PER_MET ** (vo2 / 3.5)
 
                 avg_hr, _ = scipy_quad(integrand, 0, 100)
                 avg_hr /= 100.0
@@ -292,9 +301,9 @@ class TestNormalization:
     def test_normalization_k_reasonable(self):
         """Normalization constants should be in a physiologically reasonable range."""
         for sex in ['male', 'female']:
-            model = build_full_model(sex)
+            model = build_model(FRIEND_2022_DATA[sex], AGE_BIN_SPECS, VO2_FLOOR, (20, 90))
             for age in range(20, 90):
-                k = compute_normalization_constant(model, age)
+                k = compute_normalization(model, age, HR_PER_MET, 3.5)
                 assert 1.0 < k < 10.0, \
                     f"{sex} age {age}: k = {k} out of range"
 
@@ -303,13 +312,12 @@ class TestNormalization:
     def test_ci_normalization_pop_avg_hr_equals_one(self):
         """CI normalization constants must also produce pop-avg HR = 1.0."""
         from scipy.integrate import quad as scipy_quad
-        from fit_friend_splines import KOKKINOS_HR_CI_LO, KOKKINOS_HR_CI_HI
 
         for sex in ['male', 'female']:
-            model = build_full_model(sex)
+            model = build_model(FRIEND_2022_DATA[sex], AGE_BIN_SPECS, VO2_FLOOR, (20, 90))
             for age in [30, 50, 70]:
-                for hr_val, label in [(KOKKINOS_HR_CI_LO, 'lo'), (KOKKINOS_HR_CI_HI, 'hi')]:
-                    k = compute_normalization_constant(model, age, hr_per_met=hr_val)
+                for hr_val, label in [(HR_PER_MET_CI[0], 'lo'), (HR_PER_MET_CI[1], 'hi')]:
+                    k = compute_normalization(model, age, hr_val, 3.5)
 
                     def integrand(p, _k=k, _hr=hr_val):
                         vo2 = eval_spline(
@@ -326,14 +334,13 @@ class TestNormalization:
 
     def test_ci_k_ordering(self):
         """k_lo (HR=0.85) > k (HR=0.86) > k_hi (HR=0.87) at all ages."""
-        from fit_friend_splines import KOKKINOS_HR_CI_LO, KOKKINOS_HR_CI_HI
 
         for sex in ['male', 'female']:
-            model = build_full_model(sex)
+            model = build_model(FRIEND_2022_DATA[sex], AGE_BIN_SPECS, VO2_FLOOR, (20, 90))
             for age in range(20, 90):
-                k = compute_normalization_constant(model, age, KOKKINOS_HR_PER_MET)
-                k_lo = compute_normalization_constant(model, age, KOKKINOS_HR_CI_LO)
-                k_hi = compute_normalization_constant(model, age, KOKKINOS_HR_CI_HI)
+                k = compute_normalization(model, age, HR_PER_MET, 3.5)
+                k_lo = compute_normalization(model, age, HR_PER_MET_CI[0], 3.5)
+                k_hi = compute_normalization(model, age, HR_PER_MET_CI[1], 3.5)
                 assert k_lo > k > k_hi, \
                     f"{sex} age {age}: k_lo={k_lo}, k={k}, k_hi={k_hi} ordering violated"
 
@@ -348,8 +355,8 @@ class TestFullModel:
 
     def test_male_higher_than_female(self):
         """Males should have higher VO2 at same age and percentile."""
-        model_m = build_full_model('male')
-        model_f = build_full_model('female')
+        model_m = build_model(FRIEND_2022_DATA['male'], AGE_BIN_SPECS, VO2_FLOOR, (20, 90))
+        model_f = build_model(FRIEND_2022_DATA['female'], AGE_BIN_SPECS, VO2_FLOOR, (20, 90))
 
         for age in [25, 35, 45, 55, 65, 75, 85]:
             for pct in [10, 50, 90]:
@@ -363,7 +370,7 @@ class TestFullModel:
     def test_vo2_decreases_with_age(self):
         """VO2 must decrease with age at fixed percentile."""
         for sex in ['male', 'female']:
-            model = build_full_model(sex)
+            model = build_model(FRIEND_2022_DATA[sex], AGE_BIN_SPECS, VO2_FLOOR, (20, 90))
             for pct in [10, 50, 90]:
                 prev = get_vo2(model, 20, pct)
                 for age in range(21, 90):
@@ -377,7 +384,7 @@ class TestFullModel:
     def test_vo2_increases_with_percentile(self):
         """VO2 must increase with percentile at fixed age (full 0-100 range)."""
         for sex in ['male', 'female']:
-            model = build_full_model(sex)
+            model = build_model(FRIEND_2022_DATA[sex], AGE_BIN_SPECS, VO2_FLOOR, (20, 90))
             for age in range(20, 90):
                 pcts = np.linspace(0, 100, 500)
                 vals = [get_vo2(model, age, p) for p in pcts]
@@ -389,10 +396,9 @@ class TestFullModel:
 
     def test_tail_extrapolation(self):
         """p=0 should be at VO2 floor; p=100 should mirror 80->90 gap; tails interpolated."""
-        from fit_friend_splines import VO2_FLOOR
 
         for sex in ['male', 'female']:
-            model = build_full_model(sex)
+            model = build_model(FRIEND_2022_DATA[sex], AGE_BIN_SPECS, VO2_FLOOR, (20, 90))
             for age in [30, 50, 70]:
                 v0 = get_vo2(model, age, 0)
                 v5 = get_vo2(model, age, 5)
@@ -423,7 +429,7 @@ class TestFullModel:
 
     def test_plausible_values(self):
         """Spot-check that VO2 values are physiologically plausible."""
-        model_m = build_full_model('male')
+        model_m = build_model(FRIEND_2022_DATA['male'], AGE_BIN_SPECS, VO2_FLOOR, (20, 90))
 
         # 30-year-old male, 50th percentile should be roughly 40-45
         v = get_vo2(model_m, 30, 50)

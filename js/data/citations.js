@@ -126,14 +126,15 @@ const CITATIONS = {
     doi: '10.3390/technologies8040070',
     url: 'https://doi.org/10.3390/technologies8040070',
   },
-  landi2020: {
-    short: 'Landi 2020 (Lookup 7+)',
-    full: 'Landi F, Calvani R, Tosato M, et al. Normative values of muscle strength ' +
-          'across ages in a "real world" population: results from the Longevity ' +
-          'check-up 7+ project. J Cachexia Sarcopenia Muscle. 2020;11(6):1562-1569.',
-    doi: '10.1002/jcsm.12610',
-    pmc: 'PMC7749608',
-    url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC7749608/',
+  tomkinson2024: {
+    short: 'Tomkinson 2024 (iGRIPS)',
+    full: 'Tomkinson GR, Lang JJ, Rubin L, et al. International norms for adult ' +
+          'handgrip strength: A systematic review of data on 2.4 million adults ' +
+          'aged 20 to 100+ years from 69 countries and regions. ' +
+          'J Sport Health Sci. 2024;101014.',
+    doi: '10.1016/j.jshs.2024.101014',
+    pmc: 'PMC11863340',
+    url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11863340/',
   },
   celisMorales2018: {
     short: 'Celis-Morales 2018',

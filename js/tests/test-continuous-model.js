@@ -320,7 +320,7 @@ function testContinuousModel() {
  */
 function testGripModel() {
   console.log('\n' + '='.repeat(70));
-  console.log('TEST SUITE: Grip Strength Model (Lookup 7+ / Celis-Morales 2018)');
+  console.log('TEST SUITE: Grip Strength Model (iGRIPS 2024 / Celis-Morales 2018)');
   console.log('='.repeat(70));
 
   let passed = 0;

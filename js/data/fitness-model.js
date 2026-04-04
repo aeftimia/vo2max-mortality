@@ -66,10 +66,10 @@ var METRIC_REGISTRY = {
     inputLabel: 'Grip strength (kg)',
     minValue: 1,
     maxValue: 120,
-    minAge: 18,
-    maxAge: 89,
+    minAge: 20,
+    maxAge: 104,
     placeholder: 'e.g. 35',
-    normCite: 'landi2020',
+    normCite: 'tomkinson2024',
     hrCite: 'celisMorales2018',
     sexStratifiedHR: true,
     /**

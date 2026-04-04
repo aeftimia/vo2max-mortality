@@ -86,22 +86,22 @@ only the data sources, hazard ratio values, and normative populations differ:</p
     <tr>
       <td>Normative data</td>
       <td id="cite-friend-table"><!-- JS --></td>
-      <td id="cite-landi-table"><!-- JS --></td>
+      <td id="cite-tomkinson-table"><!-- JS --></td>
     </tr>
     <tr>
       <td>Published percentiles</td>
       <td>10th&ndash;90th by decile (9 levels)</td>
-      <td>5th, 25th, 50th, 75th, 95th (5 levels)</td>
+      <td>5th&ndash;95th by decile + 5th/95th (11 levels)</td>
     </tr>
     <tr>
       <td>Age bins</td>
       <td>Decades: 20&ndash;29 through 80&ndash;89</td>
-      <td>5-year bins: 18&ndash;24 through 80+</td>
+      <td>5-year bins: 20&ndash;24 through 100+</td>
     </tr>
     <tr>
       <td>Normative population</td>
       <td>US (FRIEND registry)</td>
-      <td>Italian community-dwellers (Lookup 7+)</td>
+      <td>International (iGRIPS, 2.4M adults, 69 countries)</td>
     </tr>
     <tr>
       <td>HR source</td>
@@ -145,16 +145,16 @@ grip strength in kg) and \(q \in [0,1]\) a population quantile.
 The quantile distribution of \(B\) is conditioned on age and sex via the interpolation
 scheme described below. The splines are constructed in two stages:</p>
 <ul>
-  <li><strong>Age direction &mdash; monotone quadratic histospline:</strong> Published percentile
+  <li><strong>Age direction &mdash; quadratic histospline:</strong> Published percentile
     values are treated as bin averages (not point estimates at midpoints). A C&#xb9;
     piecewise-quadratic is fitted so that the integral over each age bin exactly
-    reproduces the published value. Monotonicity is enforced.</li>
+    reproduces the published value.</li>
   <li><strong>Quantile direction &mdash; monotone cubic Hermite (PCHIP):</strong> At each
     integer age, the quantile values from the age histosplines are extended to the
     0th and 100th percentile with physiological bounds (see table above for floor values;
     100th percentile mirrors the gap between the two highest published percentiles).
     A C&#xb9; monotone piecewise-cubic spline (Fritsch&ndash;Carlson) is fitted through all knots.</li>
-  <li>Both directions guarantee monotonicity, C&#xb9; continuity, and exact polynomial integration.
+  <li>The percentile direction guarantees monotonicity; both guarantee C&#xb9; continuity and exact polynomial integration.
     Gauss-Legendre quadrature is used for the exponential HR integral over each polynomial piece.</li>
 </ul>
 
@@ -300,7 +300,7 @@ N equivalent single-event risks: N = &Delta;q / (mortality per event).</p>
     mortality benefits than the observational HRs suggest.</li>
 
   <li><strong>Spline interpolation and extrapolation.</strong> Normative percentile data are
-    fitted with custom monotone splines in both directions. The age direction uses a quadratic
+    fitted with custom splines. The age direction uses a quadratic
     histogram-preserving spline (bin-average exact); the percentile direction uses monotone cubic
     Hermite (PCHIP/Fritsch&ndash;Carlson) with physiological extrapolation at the tails.
     Interpolation between published percentiles is accurate to within ~0.5 units.</li>
@@ -323,8 +323,8 @@ N equivalent single-event risks: N = &Delta;q / (mortality per event).</p>
     improve or decline relative to their age cohort.</li>
 
   <li><strong>Population generalizability.</strong> VO&#x2082; max norms come from a predominantly White
-    US fitness registry; grip norms from an Italian community sample. Results may differ in other
-    populations. The grip strength HR comes from UK Biobank (ages 40&ndash;69); extrapolation outside
+    US fitness registry; grip norms from an international meta-analysis (iGRIPS, 69 countries).
+    The grip strength HR comes from UK Biobank (ages 40&ndash;69); extrapolation outside
     this range carries additional uncertainty.</li>
 
   <li><strong>Comorbidity data limitations.</strong> Risk factor HRs are drawn from diverse studies,
@@ -369,7 +369,7 @@ N equivalent single-event risks: N = &Delta;q / (mortality per event).</p>
 
   // Biomarker table
   fillCiteRef('cite-friend-table', 'friend2022');
-  fillCiteRef('cite-landi-table', 'landi2020');
+  fillCiteRef('cite-tomkinson-table', 'tomkinson2024');
   fillCiteRef('cite-kokkinos-table', 'kokkinos2022');
   fillCiteRef('cite-celis-table', 'celisMorales2018');
   fillCite('cite-shephard-table', 'shephard2009', 'Shephard 2009');
@@ -408,8 +408,8 @@ N equivalent single-event risks: N = &Delta;q / (mortality per event).</p>
   [
     { key: 'friend2022', label: 'VO\u2082 max \u2014 FRIEND 2022',
       desc: 'VO\u2082 max percentiles (10th\u201390th) by decade and sex from a US fitness registry.' },
-    { key: 'landi2020', label: 'Grip strength \u2014 Lookup 7+ (Landi 2020)',
-      desc: 'Grip strength percentiles (5th\u201395th) by 5-year age group and sex from 11,331 Italian community-dwellers.' },
+    { key: 'tomkinson2024', label: 'Grip strength \u2014 iGRIPS (Tomkinson 2024)',
+      desc: 'Grip strength percentiles (5th\u201395th) by 5-year age group and sex from 2.4 million adults across 69 countries.' },
   ].forEach(function(item) {
     var li = document.createElement('li');
     li.innerHTML = '<strong>' + item.label + ':</strong> ' + citeRef(item.key) + ' ' + item.desc;
