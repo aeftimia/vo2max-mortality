@@ -159,32 +159,15 @@
     <div class="card">
       <h2>Important caveats</h2>
       <ul class="caveat-list">
-        <li id="caveat-cohort"><strong>Clinical cohort bias.</strong>
-          The underlying studies included patients referred for exercise treadmill testing (VO&#x2082; max)
-          or UK Biobank volunteers (grip strength) &mdash; neither is a random sample. We use only the
-          <em>ratios</em> (hazard ratios) between fitness levels, anchored to general-population life
-          tables. Whether this over- or under-estimates the true benefit depends on whether
-          fitness-related mortality risk is multiplicative (proportional to baseline) or additive.
-          The proportional hazards assumption is standard but imperfect.</li>
-        <li><strong>Correlation vs. causation.</strong> Observational HRs do not establish
-          causation. Fitness may partly be a biomarker of underlying health rather than a
-          purely modifiable cause of mortality.</li>
-        <li><strong>Independence assumption.</strong> Risk factors are applied multiplicatively,
-          assuming independence. Real interactions are often synergistic,
-          so combined risk may be overestimated or underestimated.</li>
-        <li><strong>Sex-stratified grip strength HR.</strong> Unlike VO&#x2082; max (where Kokkinos 2022 found
-          consistent HRs across sex), grip strength HRs differ by sex (Celis-Morales 2018:
-          1.20 per 5 kg for women vs. 1.16 for men). The calculator accounts for this.</li>
-        <li><strong>Population differences.</strong> VO&#x2082; max norms use US data (FRIEND 2022);
-          grip strength norms use international data (iGRIPS, 69 countries). Percentile rankings may differ
-          across populations.</li>
-        <li><strong>Measurement error.</strong> Field estimates carry uncertainty that can shift
-          percentile classification.</li>
-        <li><strong>Not medical advice.</strong> This tool is for educational purposes only.
-          Consult your physician before making changes to exercise or health decisions.</li>
+          <li><strong>Observational data only:</strong> Strong links, but not proof of causation. Reverse causality and hidden factors may exist.</li>
+          <li><strong>Population averages:</strong> Hazard ratios reflect group trends. Your personal risk may differ.</li>
+          <li><strong>Fitness as a health proxy:</strong> VO₂ max and grip strength indicate fitness but don’t capture everything.</li>
+          <li><strong>Indirect VO₂ max mapping:</strong> Mortality risk comes from estimated fitness (treadmill tests), not direct gas analysis.</li>
+          <li><strong>Linearity assumption:</strong> Risk is modeled as a constant per fitness unit.</li>
+          <li><strong>Constant hazard assumption:</strong>Life expectancy assumes that the proportional mortality benefit of your current fitness percentile remains constant over your lifetime.</li>
       </ul>
       <p class="small muted mt-1">
-        <a href="methodology.html">Full methodology, derivation, and references &rarr;</a>
+      <a href="methodology.html">Full methodology, derivation, and references &rarr;</a>
       </p>
     </div>
 
