@@ -19,9 +19,9 @@ const Results = {
     const info = getMetricInfo(metric);
 
     const sexLabel = sex === 'male' ? 'male' : 'female';
-    const pctText  = friendPercentile < 5  ? 'below the 5th percentile'
-                   : friendPercentile > 95 ? 'above the 95th percentile'
-                   : `approximately the ${friendPercentile}th percentile`;
+    const pctText  = friendPercentile < 5  ? '<strong>below the 5th percentile</strong>'
+                   : friendPercentile > 95 ? '<strong>above the 95th percentile</strong>'
+                   : `approximately the <strong>${friendPercentile}th percentile</strong>`;
 
     // Build HR description based on metric
     var hrDesc;
@@ -35,7 +35,7 @@ const Results = {
     }
 
     document.getElementById('hero-fitness').innerHTML =
-      `Your ${metricLabel.toLowerCase()} of <strong>${metricValue.toFixed(1)} ${metricUnit}</strong> is ${pctText} among adults of your age and sex.` +
+      `Your ${metricLabel.toLowerCase()} of ${metricValue.toFixed(1)} ${metricUnit} is ${pctText} among adults of your age and sex.` +
       `<br>This percentile is estimated from the ${citeLink(info.normCite)} normative data.` +
       `<br>The calculator uses ${hrDesc}.`;
 
