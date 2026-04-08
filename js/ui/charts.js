@@ -29,17 +29,28 @@ const Charts = {
       id: '__pct',
       label: 'Annual mortality (%)',
       axisLabel: 'Annual mortality (%)',
-      transform: function(q) { return q * 100; },
+      compute: function(q) { return q * 100; },
       format: function(v) { return v.toFixed(4) + '%'; },
     }];
     (typeof RISK_EQUIVALENTS !== 'undefined' ? RISK_EQUIVALENTS : []).forEach(function(eq) {
+      var cap = eq.labelPlural.charAt(0).toUpperCase() + eq.labelPlural.slice(1);
       units.push({
         id: eq.id,
-        label: eq.labelPlural.charAt(0).toUpperCase() + eq.labelPlural.slice(1) + ' per year',
-        axisLabel: eq.labelPlural.charAt(0).toUpperCase() + eq.labelPlural.slice(1) + ' / year (equivalent risk)',
-        transform: function(q) { return q / eq.mortalityPerEvent; },
+        label: cap + ' per year',
+        axisLabel: cap + ' / year (equivalent risk)',
+        compute: function(q) { return q / eq.mortalityPerEvent; },
         format: function(v) { return v.toFixed(2) + ' ' + eq.labelPlural + '/yr'; },
       });
+    });
+    units.push({
+      id: '__le_delta',
+      label: 'Life expectancy change (years)',
+      axisLabel: 'Δ Life expectancy vs population (years)',
+      compute: function(q, ctx) {
+        var le = lifeExpectancy(ctx.result.age, ctx.result.sex, q / ctx.result.qPop);
+        return le - ctx.result.lePopulation;
+      },
+      format: function(v) { return (v >= 0 ? '+' : '') + v.toFixed(1) + ' yr'; },
     });
     return units;
   },
@@ -100,7 +111,11 @@ const Charts = {
     var info = getMetricInfo(metric);
     var sampled = this.sampleCurve(result, 400);
     var unit = this.getActiveUnit();
-    var ys = sampled.qs.map(unit.transform);
+    var ctx_ = { result: result };
+    var ys = sampled.qs.map(function(q, i) {
+      ctx_.value = sampled.xs[i];
+      return unit.compute(q, ctx_);
+    });
 
     var heading = document.getElementById('chart-heading');
     if (heading) {
@@ -158,14 +173,19 @@ const Charts = {
             min: sampled.minV,
             max: sampled.maxV,
           },
-          y: {
-            type: 'linear',
-            position: 'left',
-            title: { display: true, text: unit.axisLabel, color: '#dc2635' },
-            ticks: { color: '#dc2635' },
-            min: 0,
-            max: Math.max.apply(null, ys) * 1.1 || 1,
-          },
+          y: (function() {
+            var yMin = Math.min.apply(null, ys);
+            var yMax = Math.max.apply(null, ys);
+            var pad = (yMax - yMin) * 0.05 || 1;
+            return {
+              type: 'linear',
+              position: 'left',
+              title: { display: true, text: unit.axisLabel, color: '#dc2635' },
+              ticks: { color: '#dc2635' },
+              min: yMin < 0 ? yMin - pad : 0,
+              max: yMax + pad,
+            };
+          })(),
         },
       },
       plugins: [{
